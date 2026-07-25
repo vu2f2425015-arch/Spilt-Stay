@@ -11,6 +11,7 @@ interface GroupDetailProps {
   onOpenAddExpense: () => void;
   onOpenSettleUp: () => void;
   onDeleteGroup: (groupId: string) => void;
+  onLeaveGroup?: (groupId: string) => void;
   onAddMember?: (groupId: string, name: string, email: string, phone: string) => void;
   currencySetting?: string;
   currentUserId: string;
@@ -25,6 +26,7 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({
   onOpenAddExpense,
   onOpenSettleUp,
   onDeleteGroup,
+  onLeaveGroup,
   onAddMember,
   currencySetting,
   currentUserId
@@ -132,10 +134,25 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({
             <span className="material-symbols-outlined text-primary">person_add</span>
             <span>Add Member</span>
           </button>
+
+          {onLeaveGroup && (
+            <button
+              onClick={() => {
+                const confirmLeave = window.confirm(`Are you sure you want to leave '${group.name}'? You can re-join later using the join code '${group.join_code}'.`);
+                if (confirmLeave) onLeaveGroup(group.id);
+              }}
+              className="bg-surface-container-high border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 px-3.5 py-2.5 rounded-xl font-semibold flex items-center gap-1.5 transition-colors text-sm"
+              title="Leave Group (removes you from this group)"
+            >
+              <span className="material-symbols-outlined text-base">logout</span>
+              <span className="hidden sm:inline">Leave</span>
+            </button>
+          )}
+
           <button
             onClick={() => onDeleteGroup(group.id)}
             className="p-2.5 text-error hover:bg-error-container/20 border border-error/30 rounded-xl transition-colors flex items-center gap-1.5 text-sm font-semibold"
-            title="Delete Group"
+            title="Delete Group for everyone"
           >
             <span className="material-symbols-outlined text-base">delete</span>
             <span className="hidden sm:inline">Delete</span>
