@@ -45,8 +45,8 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-xl md:text-2xl font-bold tracking-tight text-primary">SplitStay</span>
           </button>
 
-          {/* Group Switcher (Desktop Only) */}
-          <div className="hidden md:flex items-center gap-2">
+          {/* Group Switcher & Join Button (Desktop Only) */}
+          <div className="hidden md:flex items-center gap-3">
             <div className="relative group">
               <button className="flex items-center gap-xs bg-surface-container-low border border-outline-variant/40 px-md py-sm rounded-lg hover:bg-surface-container-highest transition-colors">
                 <span className="text-label-md font-medium text-on-surface">
@@ -97,6 +97,17 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               </div>
             </div>
+
+            {onOpenJoinGroup && (
+              <button
+                onClick={onOpenJoinGroup}
+                className="flex items-center gap-1.5 bg-primary/10 border border-primary/40 hover:bg-primary/20 text-primary px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                title="Join a roommate group using a 6-character code"
+              >
+                <span className="material-symbols-outlined text-sm">key</span>
+                <span>Join Group</span>
+              </button>
+            )}
           </div>
         </div>
 

@@ -81,38 +81,41 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({
               <span className="text-xs bg-surface-container-high text-on-surface-variant px-2.5 py-1 rounded-full border border-outline-variant/40">
                 {members.length} {members.length === 1 ? 'member' : 'members'}
               </span>
-              {group?.join_code && (
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(group.join_code!);
-                    setCopiedCode(true);
-                    setSmsLogNotice(`Copied Join Code '${group.join_code}' to clipboard! Share with your roomies.`);
-                    setTimeout(() => {
-                      setCopiedCode(false);
-                      setSmsLogNotice(null);
-                    }, 3500);
-                  }}
-                  className={`text-xs font-mono font-bold px-3 py-1 rounded-full border transition-all flex items-center gap-1 cursor-pointer ${
-                    copiedCode
-                      ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
-                      : 'bg-primary/10 border-primary/40 text-primary hover:bg-primary/20'
-                  }`}
-                  title="Click to copy invite code for roommates"
-                >
-                  {copiedCode ? (
-                    <>
-                      <span className="material-symbols-outlined text-xs text-emerald-400">check</span>
-                      <span>Copied Code!</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="material-symbols-outlined text-xs">key</span>
-                      <span>Code: {group.join_code}</span>
-                      <span className="material-symbols-outlined text-xs ml-0.5">content_copy</span>
-                    </>
-                  )}
-                </button>
-              )}
+              {(() => {
+                const codeToShow = group?.join_code || `STAY-${(group?.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase()}`;
+                return (
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(codeToShow);
+                      setCopiedCode(true);
+                      setSmsLogNotice(`Copied Join Code '${codeToShow}' to clipboard! Share with your roomies.`);
+                      setTimeout(() => {
+                        setCopiedCode(false);
+                        setSmsLogNotice(null);
+                      }, 3500);
+                    }}
+                    className={`text-xs font-mono font-bold px-3 py-1 rounded-full border transition-all flex items-center gap-1 cursor-pointer ${
+                      copiedCode
+                        ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                        : 'bg-primary/10 border-primary/40 text-primary hover:bg-primary/20'
+                    }`}
+                    title="Click to copy invite code for roommates"
+                  >
+                    {copiedCode ? (
+                      <>
+                        <span className="material-symbols-outlined text-xs text-emerald-400">check</span>
+                        <span>Copied Code!</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-xs">key</span>
+                        <span>Code: {codeToShow}</span>
+                        <span className="material-symbols-outlined text-xs ml-0.5">content_copy</span>
+                      </>
+                    )}
+                  </button>
+                );
+              })()}
             </div>
             <p className="text-sm text-on-surface-variant">{group?.description || 'No description'}</p>
           </div>
