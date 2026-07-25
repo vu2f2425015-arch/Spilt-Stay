@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SignedIn, SignedOut, useUser, useAuth } from '@clerk/clerk-react';
 import { Group, Expense, Settlement, RecurringExpense, SMSNotification } from './types';
 import { apiService } from './services/api';
-import { setClerkTokenGetter } from './lib/supabase';
+import { setClerkTokenGetter, supabase } from './lib/supabase';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { GroupDetail } from './components/GroupDetail';
@@ -142,6 +142,45 @@ export function App() {
     loadGroups();
   }, []);
 
+  // Live-sync: without this, a change made by a roommate (or from the
+  // Supabase dashboard / a different device) only shows up after a full
+  // page reload, because we only ever fetch data on mount / after our
+  // own actions. Subscribing to Postgres changes on the relevant tables
+  // keeps every open tab in sync automatically.
+  useEffect(() => {
+    const client = supabase;
+    if (!(isClerkConfigured && isSignedIn) || !client) return;
+
+    const channel = client
+      .channel('splitstay-live-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'groups' }, () => {
+        loadGroups();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'group_members' }, () => {
+        loadGroups();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => {
+        loadGroups();
+        if (selectedGroup) apiService.getExpenses(selectedGroup.id).then(setExpenses);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expense_splits' }, () => {
+        loadGroups();
+        if (selectedGroup) apiService.getExpenses(selectedGroup.id).then(setExpenses);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settlements' }, () => {
+        loadGroups();
+        if (selectedGroup) apiService.getSettlements(selectedGroup.id).then(setSettlements);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'recurring_expenses' }, () => {
+        if (selectedGroup) apiService.getRecurring(selectedGroup.id).then(setRecurring);
+      })
+      .subscribe();
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [isClerkConfigured, isSignedIn, selectedGroup?.id]);
+
   // Delete Group Action
   const handleDeleteGroup = async (groupId: string) => {
     const group = groups.find(g => g.id === groupId);
@@ -170,6 +209,13 @@ export function App() {
   const showToast = (message: string) => {
     setActiveToast(message);
     setTimeout(() => setActiveToast(null), 6000);
+  };
+
+  const handleSaveProfile = (updated: Partial<UserProfile>) => {
+    const updatedProfile = apiService.updateUserProfile(updated);
+    setUserProfile(updatedProfile);
+    loadGroups();
+    showToast('Profile saved & synced across groups!');
   };
 
   // Actions
@@ -390,16 +436,18 @@ export function App() {
         <ProfileModal
           profile={userProfile}
           onClose={() => setIsProfileOpen(false)}
-          onSaveProfile={(updated) => {
-            const updatedProfile = apiService.updateUserProfile(updated);
-            setUserProfile(updatedProfile);
-            loadGroups();
-            showToast('Profile saved & synced across groups!');
-          }}
+          onSaveProfile={handleSaveProfile}
         />
       )}
     </div>
   );
+
+  // Gate the app behind a required profile step whenever a signed-in
+  // user is missing a phone number. Google/social sign-in via Clerk
+  // reliably gives us name/email/avatar, but not a phone number - and
+  // SMS/WhatsApp alerts need one, so we collect it once here instead of
+  // silently sending nothing later.
+  const needsOnboarding = isClerkConfigured && isLoaded && isSignedIn && !userProfile.phone_number;
 
   return (
     <ErrorBoundary>
@@ -409,7 +457,16 @@ export function App() {
             <AuthScreen />
           </SignedOut>
           <SignedIn>
-            {appBody}
+            {needsOnboarding ? (
+              <ProfileModal
+                profile={userProfile}
+                required
+                onClose={() => {}}
+                onSaveProfile={handleSaveProfile}
+              />
+            ) : (
+              appBody
+            )}
           </SignedIn>
         </>
       ) : (
