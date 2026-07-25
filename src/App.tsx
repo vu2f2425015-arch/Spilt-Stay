@@ -75,7 +75,7 @@ export function App() {
   const [recurring, setRecurring] = useState<RecurringExpense[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile>(apiService.getUserProfile());
   const [loading, setLoading] = useState(true);
-  const [activeToast, setActiveToast] = useState<string | null>(null);
+  const [activeToast, setActiveToast] = useState<{ message: string; whatsappUrl?: string } | null>(null);
 
   // Modal States
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
