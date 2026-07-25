@@ -233,7 +233,6 @@ export const apiService = {
 
     const profile = getStored<UserProfile>(STORAGE_KEYS.PROFILE, DEFAULT_PROFILE);
 
-    // Build variant search strings to match STAY-TEST, TEST, STAYTEST, etc.
     const cleanAlphaNum = rawInput.replace(/[^A-Z0-9]/g, '');
     const withoutPrefix = rawInput.replace(/^STAY-?/, '');
     const withPrefix = rawInput.startsWith('STAY-') ? rawInput : `STAY-${withoutPrefix}`;
@@ -245,6 +244,33 @@ export const apiService = {
       cleanAlphaNum
     ])).filter(v => v.length > 0);
 
+    const matchGroupWithCode = (g: any): boolean => {
+      if (!g) return false;
+      const gJoinCode = (g.join_code || '').toUpperCase();
+      const gId = (g.id || '').toUpperCase();
+      const gName = (g.name || '').toUpperCase();
+      
+      const gIdSuffix = (g.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase();
+      const gIdCode = `STAY-${gIdSuffix}`;
+
+      const candidateCodes = [
+        gJoinCode,
+        gJoinCode.replace(/[^A-Z0-9]/g, ''),
+        gJoinCode.replace(/^STAY-?/, ''),
+        gId,
+        gId.replace(/[^A-Z0-9]/g, ''),
+        gIdSuffix,
+        gIdCode,
+        gIdCode.replace(/[^A-Z0-9]/g, ''),
+        gName,
+        gName.replace(/[^A-Z0-9]/g, '')
+      ].filter(Boolean);
+
+      return variants.some(v => 
+        candidateCodes.some(c => c === v || c.includes(v) || v.includes(c))
+      );
+    };
+
     let targetGroup: Group | null = null;
 
     if (supabase) {
@@ -254,22 +280,7 @@ export const apiService = {
           .select('*');
 
         if (allRemote && allRemote.length > 0) {
-          const matchedRemote = allRemote.find(rg => {
-            const rCode = (rg.join_code || `STAY-${(rg.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase()}`).toUpperCase();
-            const rCodeAlphaNum = rCode.replace(/[^A-Z0-9]/g, '');
-            const rIdUpper = (rg.id || '').toUpperCase();
-            const rNameUpper = (rg.name || '').toUpperCase();
-
-            return variants.some(v => 
-              rCode === v ||
-              rCode.includes(v) ||
-              rCodeAlphaNum === v ||
-              rCodeAlphaNum.includes(v) ||
-              v.includes(rCodeAlphaNum) ||
-              rIdUpper.includes(v) ||
-              rNameUpper === v
-            );
-          });
+          const matchedRemote = allRemote.find(rg => matchGroupWithCode(rg));
 
           if (matchedRemote) {
             const rg = matchedRemote;
@@ -321,7 +332,7 @@ export const apiService = {
               members.push(newMem);
             }
 
-            const matchedCode = rg.join_code || withPrefix;
+            const matchedCode = rawInput.startsWith('STAY-') ? rawInput : `STAY-${rawInput}`;
 
             if (!rg.join_code) {
               await supabase.from('groups').update({ join_code: matchedCode }).eq('id', rg.id);
@@ -346,28 +357,13 @@ export const apiService = {
 
     if (!targetGroup) {
       const localGroups = getStored<Group[]>(STORAGE_KEYS.GROUPS, groupsState);
-      const found = localGroups.find(g => {
-        const gCode = (g.join_code || `STAY-${(g.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase()}`).toUpperCase();
-        const gCodeAlphaNum = gCode.replace(/[^A-Z0-9]/g, '');
-        const gIdUpper = g.id.toUpperCase();
-        const gNameUpper = g.name.toUpperCase();
-
-        return variants.some(v => 
-          gCode === v || 
-          gCode.includes(v) ||
-          gCodeAlphaNum === v ||
-          gCodeAlphaNum.includes(v) ||
-          v.includes(gCodeAlphaNum) ||
-          gIdUpper.includes(v) ||
-          gNameUpper === v
-        );
-      });
+      const candidates = [...localGroups, ...groupsState];
+      const found = candidates.find(g => matchGroupWithCode(g));
 
       if (found) {
         targetGroup = { ...found };
-        if (!targetGroup.join_code) {
-          targetGroup.join_code = `STAY-${(targetGroup.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase()}`;
-        }
+        targetGroup.join_code = rawInput.startsWith('STAY-') ? rawInput : `STAY-${rawInput}`;
+        
         const alreadyMem = targetGroup.members.some(m => 
           (m.email && profile.email && m.email.toLowerCase() === profile.email.toLowerCase()) ||
           (m.user_id && profile.id && m.user_id === profile.id)
