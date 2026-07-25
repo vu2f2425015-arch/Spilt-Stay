@@ -662,6 +662,7 @@ export const apiService = {
       saveStored(STORAGE_KEYS.GROUPS, groupsState);
 
       if (supabase) {
+        const client = supabase;
         try {
           await Promise.all(
             updatedMembers
@@ -669,7 +670,7 @@ export const apiService = {
                 const orig = members.find(om => om.id === m.id);
                 return orig && orig.balance !== m.balance;
               })
-              .map(m => supabase.from('group_members').update({ balance: m.balance }).eq('id', m.id))
+              .map(m => client.from('group_members').update({ balance: m.balance }).eq('id', m.id))
           );
         } catch (err) {
           console.warn('Supabase balance sync warning after expense:', err);
@@ -823,12 +824,13 @@ export const apiService = {
       saveStored(STORAGE_KEYS.GROUPS, groupsState);
 
       if (supabase) {
+        const client = supabase;
         try {
           const changed = updatedMembers.filter(m =>
             m.user_id === settlementData.payer_id || m.user_id === settlementData.payee_id
           );
           await Promise.all(
-            changed.map(m => supabase.from('group_members').update({ balance: m.balance }).eq('id', m.id))
+            changed.map(m => client.from('group_members').update({ balance: m.balance }).eq('id', m.id))
           );
         } catch (err) {
           console.warn('Supabase balance sync warning after settlement:', err);
