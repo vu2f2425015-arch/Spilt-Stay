@@ -186,15 +186,29 @@ export function App() {
   const handleDeleteGroup = async (groupId: string) => {
     const group = groups.find(g => g.id === groupId);
     if (!group) return;
-    const confirmDelete = window.confirm(`Are you sure you want to delete '${group.name}'? This action cannot be undone.`);
+    const confirmDelete = window.confirm(`Are you sure you want to delete '${group.name}'? This action will delete the group for all roommates.`);
     if (!confirmDelete) return;
 
     await apiService.deleteGroup(groupId);
-    await loadGroups();
     if (selectedGroup?.id === groupId) {
       setSelectedGroup(null);
     }
+    const freshGroups = await apiService.getGroups();
+    setGroups(freshGroups);
     showToast(`Group '${group.name}' has been deleted.`);
+  };
+
+  // Leave Group Action
+  const handleLeaveGroup = async (groupId: string) => {
+    const group = groups.find(g => g.id === groupId);
+    const groupName = group ? group.name : 'Group';
+    await apiService.leaveGroup(groupId);
+    if (selectedGroup?.id === groupId) {
+      setSelectedGroup(null);
+    }
+    const freshGroups = await apiService.getGroups();
+    setGroups(freshGroups);
+    showToast(`You have left '${groupName}'.`);
   };
 
   // Load details when a group is selected
@@ -225,13 +239,13 @@ export function App() {
   // Actions
   const handleAddExpense = async (expenseData: Parameters<typeof apiService.addExpense>[0]) => {
     const { notificationsSent } = await apiService.addExpense(expenseData);
-    await loadGroups();
+    const freshGroups = await apiService.getGroups();
+    setGroups(freshGroups);
     
     if (selectedGroup) {
       const updatedExpenses = await apiService.getExpenses(selectedGroup.id);
       setExpenses(updatedExpenses);
-      const updatedGroups = await apiService.getGroups();
-      const refetchedGroup = updatedGroups.find(g => g.id === selectedGroup.id);
+      const refetchedGroup = freshGroups.find(g => g.id === selectedGroup.id);
       if (refetchedGroup) setSelectedGroup(refetchedGroup);
     }
 
@@ -245,13 +259,13 @@ export function App() {
 
   const handleSettleUp = async (settlementData: Parameters<typeof apiService.addSettlement>[0]) => {
     const { notification } = await apiService.addSettlement(settlementData);
-    await loadGroups();
+    const freshGroups = await apiService.getGroups();
+    setGroups(freshGroups);
     
     if (selectedGroup) {
       const updatedSettlements = await apiService.getSettlements(selectedGroup.id);
       setSettlements(updatedSettlements);
-      const updatedGroups = await apiService.getGroups();
-      const refetchedGroup = updatedGroups.find(g => g.id === selectedGroup.id);
+      const refetchedGroup = freshGroups.find(g => g.id === selectedGroup.id);
       if (refetchedGroup) setSelectedGroup(refetchedGroup);
     }
 
@@ -264,14 +278,16 @@ export function App() {
 
   const handleCreateGroup = async (name: string, description: string) => {
     const newGroup = await apiService.createGroup(name, description);
-    await loadGroups();
+    const freshGroups = await apiService.getGroups();
+    setGroups(freshGroups);
     setSelectedGroup(newGroup);
     showToast(`Group '${name}' created! Share the join code so roomies can hop in.`);
   };
 
   const handleAddMember = async (groupId: string, name: string, email: string, phone: string) => {
     const updatedGroup = await apiService.addMemberToGroup(groupId, name, phone, email);
-    await loadGroups();
+    const freshGroups = await apiService.getGroups();
+    setGroups(freshGroups);
     if (updatedGroup) setSelectedGroup(updatedGroup);
     showToast(`Added ${name} (${email}) to group!`);
   };
@@ -279,7 +295,8 @@ export function App() {
   const handleJoinGroup = async (code: string) => {
     const joinedGroup = await apiService.joinGroupWithCode(code);
     if (joinedGroup) {
-      await loadGroups();
+      const freshGroups = await apiService.getGroups();
+      setGroups(freshGroups);
       setSelectedGroup(joinedGroup);
       showToast(`Joined group '${joinedGroup.name}' successfully!`);
       return true;
@@ -353,6 +370,7 @@ export function App() {
             onOpenAddExpense={() => setIsAddExpenseOpen(true)}
             onOpenSettleUp={() => setIsSettleUpOpen(true)}
             onDeleteGroup={handleDeleteGroup}
+            onLeaveGroup={handleLeaveGroup}
             onAddMember={handleAddMember}
             currencySetting={userProfile?.currency}
             currentUserId={userProfile.id}
@@ -365,6 +383,7 @@ export function App() {
             onOpenJoinGroup={() => setIsJoinGroupOpen(true)}
             onOpenAddExpense={() => setIsAddExpenseOpen(true)}
             onDeleteGroup={handleDeleteGroup}
+            onLeaveGroup={handleLeaveGroup}
             currencySetting={userProfile?.currency}
           />
         )}
