@@ -286,53 +286,57 @@ export const apiService = {
 
     if (supabase) {
       try {
-        // Exact match only: compare the normalized code the user typed
-        // against each group's normalized code, rather than doing fuzzy
-        // substring matching (which could match the wrong group).
-        const { data: allRemote } = await supabase.from('groups').select('*');
-        const matchedRemote = (allRemote || []).find(rg => codeForGroup(rg) === target);
+        // The "groups_select_member" RLS policy only lets a signed-in user
+        // SELECT groups they already belong to, so a plain
+        // `supabase.from('groups').select('*')` here would always come
+        // back empty for a group you're trying to join for the first
+        // time. find_group_by_code() is a SECURITY DEFINER function that
+        // resolves the code without requiring membership first.
+        const { data: matchedRows, error: rpcErr } = await supabase.rpc('find_group_by_code', {
+          code_input: target
+        });
+        if (rpcErr) throw rpcErr;
+        const rg = matchedRows && matchedRows[0];
 
-        if (matchedRemote) {
-          const rg = matchedRemote;
+        if (rg) {
+          const newMem: GroupMember = {
+            id: uid('mem'),
+            user_id: profile.id || uid('user'),
+            full_name: profile.full_name || 'Roommate',
+            email: profile.email ? profile.email.trim().toLowerCase() : 'user@example.com',
+            phone_number: profile.phone_number,
+            avatar_url: profile.avatar_url || DEFAULT_AVATAR,
+            role: 'member',
+            balance: 0.00
+          };
+
+          // Insert self as a member first. This is allowed even before
+          // we're a member, since the insert policy permits a user
+          // adding themself. We do this BEFORE reading the roster below,
+          // because that read is membership-gated and would otherwise
+          // come back empty too.
+          const { error: insertErr } = await supabase.from('group_members').insert([{
+            id: newMem.id,
+            group_id: rg.id,
+            user_id: newMem.user_id,
+            email: newMem.email,
+            full_name: newMem.full_name,
+            phone_number: newMem.phone_number,
+            avatar_url: newMem.avatar_url,
+            role: newMem.role,
+            balance: 0.00
+          }]);
+          // A unique-violation here just means this account already
+          // joined this group previously - not a real failure.
+          if (insertErr && insertErr.code !== '23505') throw insertErr;
+
+          // Now that we're a member, RLS lets us read the full roster.
           const { data: remoteMembers } = await supabase
             .from('group_members')
             .select('*')
             .eq('group_id', rg.id);
 
           const members: GroupMember[] = (remoteMembers || []).map(mapRemoteMember);
-
-          const alreadyMember = members.some(m =>
-            m.user_id === profile.id ||
-            (m.email && profile.email && m.email.toLowerCase() === profile.email.toLowerCase())
-          );
-
-          if (!alreadyMember) {
-            const newMem: GroupMember = {
-              id: uid('mem'),
-              user_id: profile.id || uid('user'),
-              full_name: profile.full_name || 'Roommate',
-              email: profile.email ? profile.email.trim().toLowerCase() : 'user@example.com',
-              phone_number: profile.phone_number,
-              avatar_url: profile.avatar_url || DEFAULT_AVATAR,
-              role: 'member',
-              balance: 0.00
-            };
-
-            const { error: insertErr } = await supabase.from('group_members').insert([{
-              id: newMem.id,
-              group_id: rg.id,
-              user_id: newMem.user_id,
-              email: newMem.email,
-              full_name: newMem.full_name,
-              phone_number: newMem.phone_number,
-              avatar_url: newMem.avatar_url,
-              role: newMem.role,
-              balance: 0.00
-            }]);
-            if (insertErr) throw insertErr;
-
-            members.push(newMem);
-          }
 
           if (!rg.join_code) {
             await supabase.from('groups').update({ join_code: `STAY-${target}` }).eq('id', rg.id);
