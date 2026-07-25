@@ -1,11 +1,29 @@
 import React, { useState } from 'react';
 import { SignIn, SignUp } from '@clerk/clerk-react';
+import Galaxy from './Galaxy';
 
 export const AuthScreen: React.FC = () => {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-[#F1F5F9] flex flex-col justify-between p-4 md:p-8 font-sans animate-fade-in-up">
+    <div className="min-h-screen bg-[#0B0F19] text-[#F1F5F9] flex flex-col justify-between p-4 md:p-8 font-sans animate-fade-in-up relative">
+      {/* Interactive Galaxy Background */}
+      <div className="fixed inset-0 z-0 opacity-40 pointer-events-none overflow-hidden">
+        <Galaxy 
+          mouseRepulsion
+          mouseInteraction
+          density={1}
+          glowIntensity={0.3}
+          saturation={0}
+          hueShift={140}
+          twinkleIntensity={0.3}
+          rotationSpeed={0.1}
+          repulsionStrength={2}
+          autoCenterRepulsion={0}
+          starSpeed={0.5}
+          speed={1}
+        />
+      </div>
       {/* Top Bar */}
       <header className="max-w-7xl w-full mx-auto flex items-center justify-between py-4">
         <div className="flex items-center gap-3">
