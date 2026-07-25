@@ -1,5 +1,4 @@
-// @ts-ignore
-import { Renderer, Program, Mesh, Color, Triangle } from 'ogl';
+import { Renderer, Program, Mesh, Color, Triangle } from '../utils/ogl';
 import React, { useEffect, useRef } from 'react';
 
 const vertexShader = `
