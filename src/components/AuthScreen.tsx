@@ -5,64 +5,70 @@ export const AuthScreen: React.FC = () => {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
 
   return (
-    <div className="min-h-screen bg-background text-on-background flex flex-col justify-between p-4 md:p-8 font-sans">
+    <div className="min-h-screen bg-[#0B0F19] text-[#F1F5F9] flex flex-col justify-between p-4 md:p-8 font-sans animate-fade-in-up">
       {/* Top Bar */}
       <header className="max-w-7xl w-full mx-auto flex items-center justify-between py-4">
-        <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary text-3xl">pie_chart</span>
-          <span className="text-2xl font-bold tracking-tight text-primary">SplitStay</span>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+            <span className="material-symbols-outlined text-white text-2xl">pie_chart</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-2xl font-extrabold tracking-tight gradient-text-indigo leading-none">SplitStay</span>
+            <span className="text-[10px] tracking-wider font-semibold text-indigo-300 uppercase opacity-80">Shared Living</span>
+          </div>
         </div>
-        <div className="text-xs text-on-surface-variant bg-surface-container-low px-3 py-1.5 rounded-full border border-outline-variant/40">
-          🔒 Secure Authentication by Clerk
+        <div className="text-xs text-slate-300 bg-slate-900/90 px-3.5 py-1.5 rounded-full border border-slate-700/60 shadow-sm flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-xs text-emerald-400">lock</span>
+          <span>Secure Authentication by Clerk</span>
         </div>
       </header>
 
       {/* Main Content Grid */}
-      <main className="max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-center my-auto py-6">
+      <main className="max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-center my-auto py-8">
         {/* Left Column: Product Value Proposition */}
         <div className="lg:col-span-6 space-y-6">
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/30 text-primary px-3 py-1 rounded-full text-xs font-semibold">
-            <span className="material-symbols-outlined text-sm">bolt</span>
-            Smart Expense Splitting & SMS Alerts
+          <div className="inline-flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 px-3.5 py-1 rounded-full text-xs font-bold">
+            <span className="material-symbols-outlined text-sm text-indigo-400">bolt</span>
+            <span>Smart Expense Splitting & Live SMS Alerts</span>
           </div>
 
-          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-on-surface leading-tight">
-            Split household bills without the awkwardness.
+          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-slate-100 leading-tight">
+            Split household bills <span className="gradient-text-indigo">without awkwardness.</span>
           </h1>
 
-          <p className="text-base text-on-surface-variant leading-relaxed max-w-xl">
+          <p className="text-base text-slate-400 leading-relaxed max-w-xl">
             SplitStay helps roommates and groups track shared expenses, calculate exact balances, and notify members automatically via instant SMS alerts.
           </p>
 
           {/* Feature List */}
           <div className="space-y-4 pt-2">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-surface-container-high border border-outline-variant/40 text-primary flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-lg">account_balance_wallet</span>
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0 shadow-sm">
+                <span className="material-symbols-outlined text-xl">account_balance_wallet</span>
               </div>
               <div>
-                <h3 className="text-sm font-bold text-on-surface">Automated Balances</h3>
-                <p className="text-xs text-on-surface-variant">Instant breakdown of who owes whom in each group.</p>
+                <h3 className="text-sm font-bold text-slate-200">Automated Roommate Balances</h3>
+                <p className="text-xs text-slate-400">Instant breakdown of who owes whom in each group.</p>
               </div>
             </div>
 
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-surface-container-high border border-outline-variant/40 text-primary flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-lg">sms</span>
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0 shadow-sm">
+                <span className="material-symbols-outlined text-xl">sms</span>
               </div>
               <div>
-                <h3 className="text-sm font-bold text-on-surface">SMS & WhatsApp Alerts</h3>
-                <p className="text-xs text-on-surface-variant">Notify members when expenses are added or settled.</p>
+                <h3 className="text-sm font-bold text-slate-200">SMS & WhatsApp Alerts</h3>
+                <p className="text-xs text-slate-400">Notify roommates when expenses are added or settled.</p>
               </div>
             </div>
 
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-surface-container-high border border-outline-variant/40 text-primary flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-lg">payments</span>
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 shadow-sm">
+                <span className="material-symbols-outlined text-xl">payments</span>
               </div>
               <div>
-                <h3 className="text-sm font-bold text-on-surface">Seamless Settle Up</h3>
-                <p className="text-xs text-on-surface-variant">Connect Venmo & Cash App handles for zero-friction payments.</p>
+                <h3 className="text-sm font-bold text-slate-200">Seamless Settle Up</h3>
+                <p className="text-xs text-slate-400">Connect Venmo & Cash App handles for zero-friction payments.</p>
               </div>
             </div>
           </div>
@@ -70,25 +76,25 @@ export const AuthScreen: React.FC = () => {
 
         {/* Right Column: Clerk Sign In / Sign Up Component */}
         <div className="lg:col-span-6 flex flex-col items-center justify-center w-full">
-          <div className="w-full max-w-md bg-surface-container/80 border border-outline-variant rounded-2xl p-6 shadow-2xl backdrop-blur-md flex flex-col items-center">
+          <div className="w-full max-w-md glass-panel border border-slate-700/80 rounded-3xl p-6 shadow-2xl flex flex-col items-center">
             {/* Auth Mode Selector Header */}
-            <div className="flex w-full bg-surface-container-low p-1 rounded-xl border border-outline-variant/40 mb-6">
+            <div className="flex w-full bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 mb-6">
               <button
                 onClick={() => setMode('signin')}
-                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
                   mode === 'signin'
-                    ? 'bg-primary-container text-on-primary-container shadow'
-                    : 'text-on-surface-variant hover:text-on-surface'
+                    ? 'btn-gradient-primary text-white shadow-lg shadow-indigo-500/25'
+                    : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
                 Sign In
               </button>
               <button
                 onClick={() => setMode('signup')}
-                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
                   mode === 'signup'
-                    ? 'bg-primary-container text-on-primary-container shadow'
-                    : 'text-on-surface-variant hover:text-on-surface'
+                    ? 'btn-gradient-primary text-white shadow-lg shadow-indigo-500/25'
+                    : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
                 Create Account
@@ -105,13 +111,13 @@ export const AuthScreen: React.FC = () => {
                     elements: {
                       rootBox: 'w-full',
                       card: 'bg-transparent shadow-none p-0 w-full',
-                      headerTitle: 'text-on-surface font-bold text-xl',
-                      headerSubtitle: 'text-on-surface-variant text-xs',
-                      socialButtonsBlockButton: 'border-outline-variant text-on-surface hover:bg-surface-container-high',
-                      formButtonPrimary: 'bg-primary hover:bg-primary-hover text-on-primary font-bold py-2.5 rounded-xl shadow-lg',
-                      formFieldLabel: 'text-on-surface-variant text-xs font-semibold',
-                      formFieldInput: 'bg-surface-container-low border-outline-variant text-on-surface rounded-xl focus:border-primary',
-                      footerActionLink: 'text-primary hover:underline font-semibold'
+                      headerTitle: 'text-slate-100 font-bold text-xl',
+                      headerSubtitle: 'text-slate-400 text-xs',
+                      socialButtonsBlockButton: 'border-slate-700 text-slate-200 hover:bg-slate-800',
+                      formButtonPrimary: 'btn-gradient-primary text-white font-bold py-2.5 rounded-xl shadow-lg',
+                      formFieldLabel: 'text-slate-400 text-xs font-semibold',
+                      formFieldInput: 'bg-slate-900/90 border-slate-700 text-slate-100 rounded-xl focus:border-indigo-500',
+                      footerActionLink: 'text-indigo-400 hover:underline font-semibold'
                     }
                   }}
                 />
@@ -123,13 +129,13 @@ export const AuthScreen: React.FC = () => {
                     elements: {
                       rootBox: 'w-full',
                       card: 'bg-transparent shadow-none p-0 w-full',
-                      headerTitle: 'text-on-surface font-bold text-xl',
-                      headerSubtitle: 'text-on-surface-variant text-xs',
-                      socialButtonsBlockButton: 'border-outline-variant text-on-surface hover:bg-surface-container-high',
-                      formButtonPrimary: 'bg-primary hover:bg-primary-hover text-on-primary font-bold py-2.5 rounded-xl shadow-lg',
-                      formFieldLabel: 'text-on-surface-variant text-xs font-semibold',
-                      formFieldInput: 'bg-surface-container-low border-outline-variant text-on-surface rounded-xl focus:border-primary',
-                      footerActionLink: 'text-primary hover:underline font-semibold'
+                      headerTitle: 'text-slate-100 font-bold text-xl',
+                      headerSubtitle: 'text-slate-400 text-xs',
+                      socialButtonsBlockButton: 'border-slate-700 text-slate-200 hover:bg-slate-800',
+                      formButtonPrimary: 'btn-gradient-primary text-white font-bold py-2.5 rounded-xl shadow-lg',
+                      formFieldLabel: 'text-slate-400 text-xs font-semibold',
+                      formFieldInput: 'bg-slate-900/90 border-slate-700 text-slate-100 rounded-xl focus:border-indigo-500',
+                      footerActionLink: 'text-indigo-400 hover:underline font-semibold'
                     }
                   }}
                 />
@@ -140,8 +146,8 @@ export const AuthScreen: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="max-w-7xl w-full mx-auto text-center py-4 border-t border-outline-variant/20 text-xs text-on-surface-variant">
-        SplitStay &copy; {new Date().getFullYear()} • Powered by Clerk & Supabase
+      <footer className="max-w-7xl w-full mx-auto text-center py-4 border-t border-slate-800/60 text-xs text-slate-500">
+        SplitStay &copy; {new Date().getFullYear()} • Financial Clarity for Shared Living
       </footer>
     </div>
   );
