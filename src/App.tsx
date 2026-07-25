@@ -126,21 +126,27 @@ export function App() {
   }, [isLoaded, isSignedIn, user?.id, user?.primaryEmailAddress?.emailAddress]);
 
   // Load Groups safely
-  const loadGroups = async () => {
-    setLoading(true);
+  const loadGroups = async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     try {
       const data = await apiService.getGroups();
-      setGroups(data || []);
+      const safeData = data || [];
+      setGroups(safeData);
+      setSelectedGroup(prev => {
+        if (!prev) return null;
+        const fresh = safeData.find(g => g.id === prev.id);
+        return fresh || null;
+      });
     } catch (err) {
       console.error('Failed loading groups:', err);
       setGroups([]);
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadGroups();
+    loadGroups(true);
   }, []);
 
   // Live-sync: without this, a change made by a roommate (or from the
@@ -155,21 +161,21 @@ export function App() {
     const channel = client
       .channel('splitstay-live-sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'groups' }, () => {
-        loadGroups();
+        loadGroups(false);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'group_members' }, () => {
-        loadGroups();
+        loadGroups(false);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => {
-        loadGroups();
+        loadGroups(false);
         if (selectedGroup) apiService.getExpenses(selectedGroup.id).then(setExpenses);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'expense_splits' }, () => {
-        loadGroups();
+        loadGroups(false);
         if (selectedGroup) apiService.getExpenses(selectedGroup.id).then(setExpenses);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settlements' }, () => {
-        loadGroups();
+        loadGroups(false);
         if (selectedGroup) apiService.getSettlements(selectedGroup.id).then(setSettlements);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'recurring_expenses' }, () => {
@@ -193,8 +199,7 @@ export function App() {
     if (selectedGroup?.id === groupId) {
       setSelectedGroup(null);
     }
-    const freshGroups = await apiService.getGroups();
-    setGroups(freshGroups);
+    await loadGroups(false);
     showToast(`Group '${group.name}' has been deleted.`);
   };
 
@@ -206,8 +211,7 @@ export function App() {
     if (selectedGroup?.id === groupId) {
       setSelectedGroup(null);
     }
-    const freshGroups = await apiService.getGroups();
-    setGroups(freshGroups);
+    await loadGroups(false);
     showToast(`You have left '${groupName}'.`);
   };
 
@@ -226,13 +230,13 @@ export function App() {
     setTimeout(() => setActiveToast(null), 6000);
   };
 
-  const handleSaveProfile = (updated: Partial<UserProfile>) => {
-    const updatedProfile = apiService.updateUserProfile({
+  const handleSaveProfile = async (updated: Partial<UserProfile>) => {
+    const updatedProfile = await apiService.updateUserProfile({
       ...updated,
       is_onboarded: true
     });
     setUserProfile(updatedProfile);
-    loadGroups();
+    await loadGroups(false);
     showToast('Profile saved & synced across groups!');
   };
 
