@@ -7,6 +7,7 @@ interface HeaderProps {
   selectedGroup: Group | null;
   onSelectGroup: (group: Group | null) => void;
   onOpenNewGroup: () => void;
+  onOpenJoinGroup?: () => void;
   onOpenNotifications: () => void;
   onOpenSettings: () => void;
   onOpenProfile: () => void;
@@ -19,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   selectedGroup,
   onSelectGroup,
   onOpenNewGroup,
+  onOpenJoinGroup,
   onOpenNotifications,
   onOpenSettings,
   onOpenProfile,
@@ -77,6 +79,15 @@ export const Header: React.FC<HeaderProps> = ({
                   </button>
                 ))}
                 <div className="my-1 border-t border-outline-variant/50" />
+                {onOpenJoinGroup && (
+                  <button
+                    onClick={onOpenJoinGroup}
+                    className="w-full text-left px-4 py-2 text-sm text-primary flex items-center gap-2 hover:bg-surface-container-high transition-colors font-medium"
+                  >
+                    <span className="material-symbols-outlined text-base">key</span>
+                    Join Group with Code
+                  </button>
+                )}
                 <button
                   onClick={onOpenNewGroup}
                   className="w-full text-left px-4 py-2 text-sm text-primary flex items-center gap-2 hover:bg-surface-container-high transition-colors font-medium"
@@ -110,9 +121,19 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Clerk Auth / Profile Button */}
           {isClerkConfigured && (
-            <SignedIn>
-              <UserButton afterSignOutUrl="/" appearance={{ elements: { avatarBox: "w-8 h-8 border border-primary" } }} />
-            </SignedIn>
+            <>
+              <SignedIn>
+                <UserButton afterSignOutUrl="/" appearance={{ elements: { avatarBox: "w-8 h-8 border border-primary hover:scale-105 transition-transform" } }} />
+              </SignedIn>
+              <SignedOut>
+                <SignInButton mode="modal">
+                  <button className="bg-primary hover:bg-primary-hover text-on-primary font-semibold text-xs px-3.5 py-1.5 rounded-full shadow transition-all flex items-center gap-1.5 active:scale-95">
+                    <span className="material-symbols-outlined text-sm">login</span>
+                    Sign In
+                  </button>
+                </SignInButton>
+              </SignedOut>
+            </>
           )}
 
           <button

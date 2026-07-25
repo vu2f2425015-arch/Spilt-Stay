@@ -11,6 +11,8 @@ const isClerkConfigured = Boolean(
   PUBLISHABLE_KEY.startsWith('pk_')
 )
 
+console.log('Clerk key:', PUBLISHABLE_KEY, 'isConfigured:', isClerkConfigured)
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     {isClerkConfigured ? (

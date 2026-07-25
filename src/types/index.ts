@@ -29,6 +29,7 @@ export interface Group {
   members: GroupMember[];
   user_balance: number; // Current logged-in user balance in this group
   last_activity: string;
+  join_code?: string;
 }
 
 export interface ExpenseSplit {

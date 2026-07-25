@@ -66,17 +66,78 @@ export const apiService = {
 
   // --- GROUPS ---
   async getGroups(): Promise<Group[]> {
-    if (groupsState.length === 0) {
-      // Re-read from storage if in-memory state is empty
-      groupsState = getStored(STORAGE_KEYS.GROUPS, []);
+    const profile = getStored<UserProfile>(STORAGE_KEYS.PROFILE, DEFAULT_PROFILE);
+    const localGroups = getStored<Group[]>(STORAGE_KEYS.GROUPS, []);
+    
+    if (supabase && profile.email && !profile.email.includes('alex@example.com')) {
+      try {
+        const { data: memberRecords, error: memberError } = await supabase
+          .from('group_members')
+          .select('group_id')
+          .ilike('email', profile.email.trim());
+
+        if (!memberError && memberRecords && memberRecords.length > 0) {
+          const groupIds = Array.from(new Set(memberRecords.map(m => m.group_id)));
+          
+          const { data: remoteGroups } = await supabase
+            .from('groups')
+            .select('*')
+            .in('id', groupIds);
+
+          const { data: remoteMembers } = await supabase
+            .from('group_members')
+            .select('*')
+            .in('group_id', groupIds);
+
+          if (remoteGroups && remoteGroups.length > 0) {
+            const assembled: Group[] = remoteGroups.map(rg => {
+              const members = (remoteMembers || [])
+                .filter(m => m.group_id === rg.id)
+                .map(m => ({
+                  id: m.id,
+                  user_id: m.user_id || m.id,
+                  full_name: m.full_name,
+                  email: m.email,
+                  phone_number: m.phone_number,
+                  avatar_url: m.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+                  role: (m.role as 'owner' | 'admin' | 'member') || 'member',
+                  balance: Number(m.balance || 0)
+                }));
+
+              const myMem = members.find(m => m.email.toLowerCase() === profile.email.toLowerCase());
+              return {
+                id: rg.id,
+                name: rg.name,
+                description: rg.description || '',
+                join_code: rg.join_code || undefined,
+                created_at: rg.created_at ? rg.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+                last_activity: rg.last_activity || 'Recent',
+                user_balance: myMem ? myMem.balance : 0,
+                members
+              };
+            });
+
+            // Safely merge remote groups with local groups
+            const remoteIds = new Set(assembled.map(g => g.id));
+            const extraLocal = localGroups.filter(g => !remoteIds.has(g.id));
+            groupsState = [...assembled, ...extraLocal];
+            saveStored(STORAGE_KEYS.GROUPS, groupsState);
+            return groupsState.map(sanitizeGroup);
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase fetch groups error:', err);
+      }
     }
+
+    groupsState = localGroups.length > 0 ? localGroups : groupsState;
     return groupsState.map(sanitizeGroup);
   },
 
   async createGroup(
     name: string,
     description: string,
-    rawMembers: { name: string; phone?: string }[] = []
+    rawMembers: { name: string; phone?: string; email?: string }[] = []
   ): Promise<Group> {
     const defaultAvatars = [
       'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
@@ -86,12 +147,13 @@ export const apiService = {
     ];
 
     const profile = getStored<UserProfile>(STORAGE_KEYS.PROFILE, DEFAULT_PROFILE);
+    const joinCode = 'STAY-' + Math.random().toString(36).substring(2, 6).toUpperCase();
     
     const currentMember: GroupMember = {
       id: `mem-${Date.now()}-0`,
-      user_id: 'user_current',
+      user_id: profile.id || `user-${Date.now()}`,
       full_name: profile.full_name || 'Alex Morgan',
-      email: profile.email || 'alex@example.com',
+      email: profile.email ? profile.email.trim().toLowerCase() : 'alex@example.com',
       phone_number: profile.phone_number || '+1 (555) 019-2831',
       avatar_url: profile.avatar_url || defaultAvatars[0],
       role: 'owner',
@@ -105,7 +167,7 @@ export const apiService = {
         user_id: `user_${Date.now()}_${idx}`,
         full_name: m.name.trim(),
         phone_number: m.phone ? m.phone.trim() : undefined,
-        email: `${m.name.toLowerCase().replace(/\s+/g, '')}@example.com`,
+        email: m.email && m.email.trim() ? m.email.trim().toLowerCase() : `${m.name.toLowerCase().replace(/\s+/g, '')}@example.com`,
         avatar_url: defaultAvatars[(idx + 1) % defaultAvatars.length],
         role: 'member',
         balance: 0.00,
@@ -115,6 +177,7 @@ export const apiService = {
       id: `group-${Date.now()}`,
       name: name.trim(),
       description: description ? description.trim() : '',
+      join_code: joinCode,
       created_at: new Date().toISOString().split('T')[0],
       last_activity: 'Just created',
       user_balance: 0.00,
@@ -123,20 +186,169 @@ export const apiService = {
 
     groupsState = [newGroup, ...groupsState];
     saveStored(STORAGE_KEYS.GROUPS, groupsState);
+
+    if (supabase) {
+      try {
+        await supabase.from('groups').insert([{
+          id: newGroup.id,
+          name: newGroup.name,
+          description: newGroup.description,
+          join_code: joinCode,
+          created_by: currentMember.user_id,
+          created_at: new Date().toISOString(),
+          last_activity: 'Just created'
+        }]);
+
+        const supabaseMembers = [currentMember, ...parsedMembers].map(m => ({
+          id: m.id,
+          group_id: newGroup.id,
+          user_id: m.user_id,
+          email: m.email.toLowerCase(),
+          full_name: m.full_name,
+          phone_number: m.phone_number,
+          avatar_url: m.avatar_url,
+          role: m.role,
+          balance: m.balance
+        }));
+
+        await supabase.from('group_members').insert(supabaseMembers);
+      } catch (err) {
+        console.warn('Supabase group create warning:', err);
+      }
+    }
+
     return sanitizeGroup(newGroup);
   },
 
-  async addMemberToGroup(groupId: string, name: string, phone: string): Promise<Group | null> {
+  async joinGroupWithCode(joinCode: string): Promise<Group | null> {
+    const cleanCode = joinCode.trim().toUpperCase();
+    const profile = getStored<UserProfile>(STORAGE_KEYS.PROFILE, DEFAULT_PROFILE);
+
+    let targetGroup: Group | null = null;
+
+    if (supabase) {
+      try {
+        const { data: remoteGroups } = await supabase
+          .from('groups')
+          .select('*')
+          .ilike('join_code', cleanCode);
+
+        if (remoteGroups && remoteGroups.length > 0) {
+          const rg = remoteGroups[0];
+          
+          const { data: remoteMembers } = await supabase
+            .from('group_members')
+            .select('*')
+            .eq('group_id', rg.id);
+
+          const members: GroupMember[] = (remoteMembers || []).map(m => ({
+            id: m.id,
+            user_id: m.user_id || m.id,
+            full_name: m.full_name,
+            email: m.email,
+            phone_number: m.phone_number,
+            avatar_url: m.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+            role: (m.role as 'owner' | 'admin' | 'member') || 'member',
+            balance: Number(m.balance || 0)
+          }));
+
+          const alreadyMember = members.some(m => 
+            (m.email && profile.email && m.email.toLowerCase() === profile.email.toLowerCase()) || 
+            (m.user_id && profile.id && m.user_id === profile.id)
+          );
+
+          if (!alreadyMember) {
+            const newMem: GroupMember = {
+              id: `mem-${Date.now()}`,
+              user_id: profile.id || `user-${Date.now()}`,
+              full_name: profile.full_name || 'Roommate',
+              email: profile.email ? profile.email.trim().toLowerCase() : 'user@example.com',
+              phone_number: profile.phone_number,
+              avatar_url: profile.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+              role: 'member',
+              balance: 0.00
+            };
+
+            await supabase.from('group_members').insert([{
+              id: newMem.id,
+              group_id: rg.id,
+              user_id: newMem.user_id,
+              email: newMem.email,
+              full_name: newMem.full_name,
+              phone_number: newMem.phone_number,
+              avatar_url: newMem.avatar_url,
+              role: newMem.role,
+              balance: 0.00
+            }]);
+
+            members.push(newMem);
+          }
+
+          targetGroup = {
+            id: rg.id,
+            name: rg.name,
+            description: rg.description || '',
+            join_code: rg.join_code || cleanCode,
+            created_at: rg.created_at ? rg.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+            last_activity: 'Joined via code',
+            user_balance: 0.00,
+            members
+          };
+        }
+      } catch (err) {
+        console.warn('Supabase join group error:', err);
+      }
+    }
+
+    if (!targetGroup) {
+      const localGroups = getStored<Group[]>(STORAGE_KEYS.GROUPS, []);
+      const found = localGroups.find(g => g.join_code && g.join_code.toUpperCase() === cleanCode);
+      if (found) {
+        targetGroup = found;
+        const alreadyMem = targetGroup.members.some(m => m.email.toLowerCase() === profile.email.toLowerCase());
+        if (!alreadyMem) {
+          targetGroup.members.push({
+            id: `mem-${Date.now()}`,
+            user_id: profile.id || `user-${Date.now()}`,
+            full_name: profile.full_name || 'Roommate',
+            email: profile.email || 'user@example.com',
+            phone_number: profile.phone_number,
+            avatar_url: profile.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+            role: 'member',
+            balance: 0.00
+          });
+        }
+      }
+    }
+
+    if (targetGroup) {
+      const localGroups = getStored<Group[]>(STORAGE_KEYS.GROUPS, []);
+      const existsIndex = localGroups.findIndex(g => g.id === targetGroup!.id);
+      if (existsIndex !== -1) {
+        localGroups[existsIndex] = targetGroup;
+      } else {
+        localGroups.unshift(targetGroup);
+      }
+      groupsState = localGroups;
+      saveStored(STORAGE_KEYS.GROUPS, groupsState);
+      return sanitizeGroup(targetGroup);
+    }
+
+    return null;
+  },
+
+  async addMemberToGroup(groupId: string, name: string, phone: string, email?: string): Promise<Group | null> {
     const groupIndex = groupsState.findIndex(g => g.id === groupId);
     if (groupIndex === -1) return null;
 
     const group = groupsState[groupIndex];
+    const memberEmail = email && email.trim() ? email.trim().toLowerCase() : `${name.toLowerCase().replace(/\s+/g, '')}@example.com`;
     const newMember: GroupMember = {
       id: `mem-${Date.now()}`,
       user_id: `user_${Date.now()}`,
       full_name: name.trim(),
       phone_number: phone ? phone.trim() : undefined,
-      email: `${name.toLowerCase().replace(/\s+/g, '')}@example.com`,
+      email: memberEmail,
       avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
       role: 'member',
       balance: 0.00,
@@ -146,6 +358,24 @@ export const apiService = {
     group.last_activity = 'Member added';
     groupsState[groupIndex] = group;
     saveStored(STORAGE_KEYS.GROUPS, groupsState);
+
+    if (supabase) {
+      try {
+        await supabase.from('group_members').insert([{
+          id: newMember.id,
+          group_id: groupId,
+          user_id: newMember.user_id,
+          email: memberEmail,
+          full_name: newMember.full_name,
+          phone_number: newMember.phone_number,
+          avatar_url: newMember.avatar_url,
+          role: newMember.role,
+          balance: 0.00
+        }]);
+      } catch (err) {
+        console.warn('Supabase add member warning:', err);
+      }
+    }
 
     return sanitizeGroup(group);
   },
@@ -395,6 +625,10 @@ export const apiService = {
   },
 
   updateUserProfile(updated: Partial<UserProfile>): UserProfile {
+    if (updated.email && profileState.email && updated.email.toLowerCase() !== profileState.email.toLowerCase()) {
+      groupsState = [];
+    }
+
     profileState = { ...profileState, ...updated };
     saveStored(STORAGE_KEYS.PROFILE, profileState);
 
@@ -402,7 +636,7 @@ export const apiService = {
     groupsState = groupsState.map(g => ({
       ...g,
       members: g.members.map(m => {
-        if (m.user_id === 'user_current') {
+        if (m.user_id === profileState.id || m.email.toLowerCase() === profileState.email.toLowerCase()) {
           return {
             ...m,
             full_name: profileState.full_name,

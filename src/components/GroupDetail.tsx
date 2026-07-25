@@ -11,6 +11,7 @@ interface GroupDetailProps {
   onOpenAddExpense: () => void;
   onOpenSettleUp: () => void;
   onDeleteGroup: (groupId: string) => void;
+  onAddMember?: (groupId: string, name: string, email: string, phone: string) => void;
   currencySetting?: string;
 }
 
@@ -23,10 +24,16 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({
   onOpenAddExpense,
   onOpenSettleUp,
   onDeleteGroup,
+  onAddMember,
   currencySetting
 }) => {
   const [activeTab, setActiveTab] = useState<'activity' | 'balances' | 'recurring'>('activity');
   const [smsLogNotice, setSmsLogNotice] = useState<string | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberEmail, setNewMemberEmail] = useState('');
+  const [newMemberPhone, setNewMemberPhone] = useState('');
 
   const members = Array.isArray(group?.members) ? group.members : [];
   const safeExpenses = Array.isArray(expenses) ? expenses : [];
@@ -69,24 +76,64 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl md:text-3xl font-bold text-on-background">{group?.name || 'Group Details'}</h1>
               <span className="text-xs bg-surface-container-high text-on-surface-variant px-2.5 py-1 rounded-full border border-outline-variant/40">
                 {members.length} {members.length === 1 ? 'member' : 'members'}
               </span>
+              {group?.join_code && (
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(group.join_code!);
+                    setCopiedCode(true);
+                    setSmsLogNotice(`Copied Join Code '${group.join_code}' to clipboard! Share with your roomies.`);
+                    setTimeout(() => {
+                      setCopiedCode(false);
+                      setSmsLogNotice(null);
+                    }, 3500);
+                  }}
+                  className={`text-xs font-mono font-bold px-3 py-1 rounded-full border transition-all flex items-center gap-1 cursor-pointer ${
+                    copiedCode
+                      ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                      : 'bg-primary/10 border-primary/40 text-primary hover:bg-primary/20'
+                  }`}
+                  title="Click to copy invite code for roommates"
+                >
+                  {copiedCode ? (
+                    <>
+                      <span className="material-symbols-outlined text-xs text-emerald-400">check</span>
+                      <span>Copied Code!</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-xs">key</span>
+                      <span>Code: {group.join_code}</span>
+                      <span className="material-symbols-outlined text-xs ml-0.5">content_copy</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
             <p className="text-sm text-on-surface-variant">{group?.description || 'No description'}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => setIsAddMemberOpen(true)}
+            className="bg-surface-container-high border border-outline-variant hover:border-primary/50 text-primary px-lg py-md rounded-xl font-semibold flex items-center justify-center gap-2 transition-all active:scale-95 text-sm"
+            title="Add a new roommate by email to this group"
+          >
+            <span className="material-symbols-outlined text-primary">person_add</span>
+            <span>Add Member</span>
+          </button>
           <button
             onClick={() => onDeleteGroup(group.id)}
             className="p-2.5 text-error hover:bg-error-container/20 border border-error/30 rounded-xl transition-colors flex items-center gap-1.5 text-sm font-semibold"
             title="Delete Group"
           >
             <span className="material-symbols-outlined text-base">delete</span>
-            <span className="hidden sm:inline">Delete Group</span>
+            <span className="hidden sm:inline">Delete</span>
           </button>
           <button
             onClick={onOpenSettleUp}
@@ -235,13 +282,17 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({
                     />
                     <div>
                       <p className="font-semibold text-on-surface text-sm">{member.full_name}</p>
-                      {member.phone_number ? (
-                        <p className="text-[11px] text-primary flex items-center gap-1">
-                          <span className="material-symbols-outlined text-xs">phone</span>
-                          {member.phone_number}
+                      {member.email && (
+                        <p className="text-[11px] text-on-surface-variant flex items-center gap-1">
+                          <span className="material-symbols-outlined text-xs text-primary">mail</span>
+                          <span>{member.email}</span>
                         </p>
-                      ) : (
-                        <p className="text-xs text-on-surface-variant capitalize">{member.role}</p>
+                      )}
+                      {member.phone_number && (
+                        <p className="text-[11px] text-on-surface-variant flex items-center gap-1">
+                          <span className="material-symbols-outlined text-xs">phone</span>
+                          <span>{member.phone_number}</span>
+                        </p>
                       )}
                     </div>
                   </div>
@@ -382,6 +433,93 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ADD MEMBER MODAL */}
+      {isAddMemberOpen && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-surface-container border border-outline-variant rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-150">
+            <div className="px-lg py-md border-b border-outline-variant/40 flex justify-between items-center bg-surface-container-low">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">person_add</span>
+                <h3 className="font-bold text-on-surface text-base">Add Member by Email</h3>
+              </div>
+              <button
+                onClick={() => setIsAddMemberOpen(false)}
+                className="p-1 text-on-surface-variant hover:text-on-surface rounded-full"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newMemberName.trim() || !newMemberEmail.trim()) return;
+                if (onAddMember) {
+                  onAddMember(group.id, newMemberName.trim(), newMemberEmail.trim(), newMemberPhone.trim());
+                }
+                setNewMemberName('');
+                setNewMemberEmail('');
+                setNewMemberPhone('');
+                setIsAddMemberOpen(false);
+              }}
+              className="p-lg space-y-md"
+            >
+              <div className="space-y-xs">
+                <label className="text-xs font-semibold text-on-surface-variant uppercase">Full Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Jane Doe"
+                  value={newMemberName}
+                  onChange={(e) => setNewMemberName(e.target.value)}
+                  required
+                  className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-xs">
+                <label className="text-xs font-semibold text-on-surface-variant uppercase">Email Address (for Account Connection) *</label>
+                <input
+                  type="email"
+                  placeholder="e.g. jane@example.com"
+                  value={newMemberEmail}
+                  onChange={(e) => setNewMemberEmail(e.target.value)}
+                  required
+                  className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none"
+                />
+                <p className="text-[11px] text-primary">When Jane logs in with this email, this group will automatically show on her dashboard.</p>
+              </div>
+
+              <div className="space-y-xs">
+                <label className="text-xs font-semibold text-on-surface-variant uppercase">Phone Number (SMS Alerts, Optional)</label>
+                <input
+                  type="tel"
+                  placeholder="+1 (555) 000-0000"
+                  value={newMemberPhone}
+                  onChange={(e) => setNewMemberPhone(e.target.value)}
+                  className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-md pt-md border-t border-outline-variant/40">
+                <button
+                  type="button"
+                  onClick={() => setIsAddMemberOpen(false)}
+                  className="px-md py-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-primary-container text-on-primary-container px-lg py-2 text-sm font-semibold rounded-xl shadow"
+                >
+                  Add Member
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

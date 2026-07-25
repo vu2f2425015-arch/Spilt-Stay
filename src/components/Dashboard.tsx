@@ -6,6 +6,7 @@ interface DashboardProps {
   groups: Group[];
   onSelectGroup: (group: Group) => void;
   onOpenNewGroup: () => void;
+  onOpenJoinGroup?: () => void;
   onOpenAddExpense: () => void;
   onDeleteGroup: (groupId: string) => void;
   currencySetting?: string;
@@ -15,6 +16,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   groups,
   onSelectGroup,
   onOpenNewGroup,
+  onOpenJoinGroup,
   onOpenAddExpense,
   onDeleteGroup,
   currencySetting
@@ -33,7 +35,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <div className="space-y-xl">
       {/* Welcome Header */}
       <section className="grid grid-cols-1 md:grid-cols-12 gap-lg items-end">
-        <div className="md:col-span-8 space-y-xs">
+        <div className="md:col-span-6 space-y-xs">
           <h1 className="text-headline-lg font-bold text-on-background">Your Groups</h1>
           <p className="text-body-md text-on-surface-variant">
             {groups.length === 0
@@ -41,7 +43,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
               : `Managing split expenses across ${groups.length} active ${groups.length === 1 ? 'circle' : 'circles'}.`}
           </p>
         </div>
-        <div className="md:col-span-4 flex flex-col sm:flex-row gap-3 justify-end">
+        <div className="md:col-span-6 flex flex-col sm:flex-row gap-2.5 justify-end flex-wrap">
+          {onOpenJoinGroup && (
+            <button
+              onClick={onOpenJoinGroup}
+              className="w-full sm:w-auto bg-surface-container-high border border-outline-variant hover:border-primary text-primary px-lg py-md rounded-xl font-semibold flex items-center justify-center gap-2 transition-all active:scale-95 text-sm"
+              title="Join a roommate's group using a 6-character code"
+            >
+              <span className="material-symbols-outlined text-primary">key</span>
+              <span>Join with Code</span>
+            </button>
+          )}
           {groups.length > 0 && (
             <button
               onClick={onOpenAddExpense}

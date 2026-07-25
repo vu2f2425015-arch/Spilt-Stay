@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { SignedIn, SignedOut, useUser } from '@clerk/clerk-react';
 import { Group, Expense, Settlement, RecurringExpense, SMSNotification } from './types';
 import { apiService } from './services/api';
 import { Header } from './components/Header';
@@ -10,6 +11,8 @@ import { NewGroupModal } from './components/NewGroupModal';
 import { NotificationsModal } from './components/NotificationsModal';
 import { SettingsModal } from './components/SettingsModal';
 import { ProfileModal } from './components/ProfileModal';
+import { JoinGroupModal } from './components/JoinGroupModal';
+import { AuthScreen } from './components/AuthScreen';
 import { UserProfile } from './types';
 
 const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '';
@@ -62,6 +65,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 }
 
 export function App() {
+  const { isLoaded, isSignedIn, user } = useUser();
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -75,9 +79,35 @@ export function App() {
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [isSettleUpOpen, setIsSettleUpOpen] = useState(false);
   const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
+  const [isJoinGroupOpen, setIsJoinGroupOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  // Sync Clerk user profile data upon sign in and reload groups for the authenticated account
+  useEffect(() => {
+    if (isClerkConfigured && isLoaded) {
+      if (isSignedIn && user) {
+        const clerkName = user.fullName || user.firstName || 'SplitStay User';
+        const clerkEmail = user.primaryEmailAddress?.emailAddress || '';
+        const clerkAvatar = user.imageUrl || '';
+        const clerkPhone = user.primaryPhoneNumber?.phoneNumber || '';
+
+        const updatedProfile = apiService.updateUserProfile({
+          id: user.id,
+          full_name: clerkName,
+          email: clerkEmail,
+          avatar_url: clerkAvatar,
+          phone_number: clerkPhone,
+        });
+        setUserProfile(updatedProfile);
+        loadGroups();
+      } else {
+        setGroups([]);
+        setSelectedGroup(null);
+      }
+    }
+  }, [isLoaded, isSignedIn, user?.id, user?.primaryEmailAddress?.emailAddress]);
 
   // Load Groups safely
   const loadGroups = async () => {
@@ -170,7 +200,7 @@ export function App() {
   const handleCreateGroup = async (
     name: string,
     description: string,
-    rawMembers: { name: string; phone?: string }[]
+    rawMembers: { name: string; phone?: string; email?: string }[]
   ) => {
     const newGroup = await apiService.createGroup(name, description, rawMembers);
     await loadGroups();
@@ -178,149 +208,201 @@ export function App() {
     showToast(`Group '${name}' created with ${newGroup.members.length} members!`);
   };
 
-  return (
-    <ErrorBoundary>
-      <div className="min-h-screen bg-background text-on-background flex flex-col font-sans relative">
-        {/* Toast Notification Popup */}
-        {activeToast && (
-          <div className="fixed bottom-6 right-6 z-50 bg-surface-container-highest border border-primary/50 text-on-surface px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5">
-            <span className="material-symbols-outlined text-primary text-xl">notifications_active</span>
-            <span className="text-sm font-semibold">{activeToast}</span>
-            <button
-              onClick={() => setActiveToast(null)}
-              className="text-on-surface-variant hover:text-on-surface ml-2"
-            >
-              <span className="material-symbols-outlined text-base">close</span>
-            </button>
-          </div>
-        )}
+  const handleAddMember = async (groupId: string, name: string, email: string, phone: string) => {
+    const updatedGroup = await apiService.addMemberToGroup(groupId, name, phone, email);
+    await loadGroups();
+    if (updatedGroup) setSelectedGroup(updatedGroup);
+    showToast(`Added ${name} (${email}) to group!`);
+  };
 
-        {/* Top Navigation */}
-        <Header
+  const handleJoinGroup = async (code: string) => {
+    const joinedGroup = await apiService.joinGroupWithCode(code);
+    if (joinedGroup) {
+      await loadGroups();
+      setSelectedGroup(joinedGroup);
+      showToast(`Joined group '${joinedGroup.name}' successfully!`);
+      return true;
+    }
+    return false;
+  };
+
+  if (isClerkConfigured && !isLoaded) {
+    return (
+      <div className="min-h-screen bg-background text-on-background flex flex-col items-center justify-center gap-3">
+        <span className="material-symbols-outlined animate-spin text-4xl text-primary">progress_activity</span>
+        <p className="text-sm font-semibold text-on-surface-variant">Connecting to Clerk Authentication...</p>
+      </div>
+    );
+  }
+
+  const appBody = (
+    <div className="min-h-screen bg-background text-on-background flex flex-col font-sans relative">
+      {/* Toast Notification Popup */}
+      {activeToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-surface-container-highest border border-primary/50 text-on-surface px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5">
+          <span className="material-symbols-outlined text-primary text-xl">notifications_active</span>
+          <span className="text-sm font-semibold">{activeToast}</span>
+          <button
+            onClick={() => setActiveToast(null)}
+            className="text-on-surface-variant hover:text-on-surface ml-2"
+          >
+            <span className="material-symbols-outlined text-base">close</span>
+          </button>
+        </div>
+      )}
+
+      {/* Top Navigation */}
+      <Header
+        groups={groups}
+        selectedGroup={selectedGroup}
+        onSelectGroup={setSelectedGroup}
+        onOpenNewGroup={() => setIsNewGroupOpen(true)}
+        onOpenJoinGroup={() => setIsJoinGroupOpen(true)}
+        onOpenNotifications={() => setIsNotificationsOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenProfile={() => setIsProfileOpen(true)}
+        userProfile={userProfile}
+        isClerkConfigured={isClerkConfigured}
+      />
+
+      {/* Database/Auth Warning Banner if placeholders active */}
+      {(!apiService.isConfigured || !isClerkConfigured) && (
+        <div className="bg-surface-container-low border-b border-primary/20 text-xs px-4 py-2 text-center text-on-surface-variant flex items-center justify-center gap-2">
+          <span className="material-symbols-outlined text-primary text-sm">info</span>
+          <span>
+            Running in <strong>Clean Local Mode</strong>. Provide <code>VITE_CLERK_PUBLISHABLE_KEY</code> & <code>VITE_SUPABASE_URL</code> in <code>.env</code> for live cloud database sync.
+          </span>
+        </div>
+      )}
+
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-container-max w-full mx-auto px-4 md:px-xl py-lg">
+        {loading ? (
+          <div className="flex items-center justify-center py-24 text-on-surface-variant gap-3">
+            <span className="material-symbols-outlined animate-spin text-3xl text-primary">progress_activity</span>
+            <span>Loading SplitStay workspace...</span>
+          </div>
+        ) : selectedGroup ? (
+          <GroupDetail
+            group={selectedGroup}
+            expenses={expenses}
+            settlements={settlements}
+            recurring={recurring}
+            onBack={() => setSelectedGroup(null)}
+            onOpenAddExpense={() => setIsAddExpenseOpen(true)}
+            onOpenSettleUp={() => setIsSettleUpOpen(true)}
+            onDeleteGroup={handleDeleteGroup}
+            onAddMember={handleAddMember}
+            currencySetting={userProfile?.currency}
+          />
+        ) : (
+          <Dashboard
+            groups={groups}
+            onSelectGroup={setSelectedGroup}
+            onOpenNewGroup={() => setIsNewGroupOpen(true)}
+            onOpenJoinGroup={() => setIsJoinGroupOpen(true)}
+            onOpenAddExpense={() => setIsAddExpenseOpen(true)}
+            onDeleteGroup={handleDeleteGroup}
+            currencySetting={userProfile?.currency}
+          />
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-outline-variant/30 py-md px-4 text-center text-xs text-on-surface-variant/60">
+        SplitStay Financial Clarity • Supabase & Clerk Integration • SMS Phone Alerts
+      </footer>
+
+      {/* Modals */}
+      {isAddExpenseOpen && (
+        <AddExpenseModal
           groups={groups}
           selectedGroup={selectedGroup}
-          onSelectGroup={setSelectedGroup}
-          onOpenNewGroup={() => setIsNewGroupOpen(true)}
-          onOpenNotifications={() => setIsNotificationsOpen(true)}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-          onOpenProfile={() => setIsProfileOpen(true)}
-          userProfile={userProfile}
-          isClerkConfigured={isClerkConfigured}
+          onClose={() => setIsAddExpenseOpen(false)}
+          currencySetting={userProfile?.currency}
+          onAddExpense={handleAddExpense}
         />
+      )}
 
-        {/* Database/Auth Warning Banner if placeholders active */}
-        {(!apiService.isConfigured || !isClerkConfigured) && (
-          <div className="bg-surface-container-low border-b border-primary/20 text-xs px-4 py-2 text-center text-on-surface-variant flex items-center justify-center gap-2">
-            <span className="material-symbols-outlined text-primary text-sm">info</span>
-            <span>
-              Running in <strong>Clean Local Mode</strong>. Provide <code>VITE_CLERK_PUBLISHABLE_KEY</code> & <code>VITE_SUPABASE_URL</code> in <code>.env</code> for live cloud database sync.
-            </span>
-          </div>
-        )}
+      {isSettleUpOpen && (
+        <SettleUpModal
+          groups={groups}
+          selectedGroup={selectedGroup}
+          onClose={() => setIsSettleUpOpen(false)}
+          currencySetting={userProfile?.currency}
+          onSettleUp={handleSettleUp}
+        />
+      )}
 
-        {/* Main Content Area */}
-        <main className="flex-1 max-w-container-max w-full mx-auto px-4 md:px-xl py-lg">
-          {loading ? (
-            <div className="flex items-center justify-center py-24 text-on-surface-variant gap-3">
-              <span className="material-symbols-outlined animate-spin text-3xl text-primary">progress_activity</span>
-              <span>Loading SplitStay workspace...</span>
-            </div>
-          ) : selectedGroup ? (
-            <GroupDetail
-              group={selectedGroup}
-              expenses={expenses}
-              settlements={settlements}
-              recurring={recurring}
-              onBack={() => setSelectedGroup(null)}
-              onOpenAddExpense={() => setIsAddExpenseOpen(true)}
-              onOpenSettleUp={() => setIsSettleUpOpen(true)}
-              onDeleteGroup={handleDeleteGroup}
-              currencySetting={userProfile?.currency}
-            />
-          ) : (
-            <Dashboard
-              groups={groups}
-              onSelectGroup={setSelectedGroup}
-              onOpenNewGroup={() => setIsNewGroupOpen(true)}
-              onOpenAddExpense={() => setIsAddExpenseOpen(true)}
-              onDeleteGroup={handleDeleteGroup}
-              currencySetting={userProfile?.currency}
-            />
-          )}
-        </main>
+      {isNewGroupOpen && (
+        <NewGroupModal
+          onClose={() => setIsNewGroupOpen(false)}
+          onCreateGroup={handleCreateGroup}
+          userName={userProfile?.full_name}
+        />
+      )}
 
-        {/* Footer */}
-        <footer className="border-t border-outline-variant/30 py-md px-4 text-center text-xs text-on-surface-variant/60">
-          SplitStay Financial Clarity • Supabase & Clerk Integration • SMS Phone Alerts
-        </footer>
+      {isJoinGroupOpen && (
+        <JoinGroupModal
+          onClose={() => setIsJoinGroupOpen(false)}
+          onJoinGroup={handleJoinGroup}
+        />
+      )}
 
-        {/* Modals */}
-        {isAddExpenseOpen && (
-          <AddExpenseModal
-            groups={groups}
-            selectedGroup={selectedGroup}
-            onClose={() => setIsAddExpenseOpen(false)}
-            currencySetting={userProfile?.currency}
-            onAddExpense={handleAddExpense}
-          />
-        )}
+      {isNotificationsOpen && (
+        <NotificationsModal
+          onClose={() => setIsNotificationsOpen(false)}
+        />
+      )}
 
-        {isSettleUpOpen && (
-          <SettleUpModal
-            groups={groups}
-            selectedGroup={selectedGroup}
-            onClose={() => setIsSettleUpOpen(false)}
-            currencySetting={userProfile?.currency}
-            onSettleUp={handleSettleUp}
-          />
-        )}
+      {isSettingsOpen && (
+        <SettingsModal
+          profile={userProfile}
+          onClose={() => setIsSettingsOpen(false)}
+          onSaveProfile={(updated) => {
+            const updatedProfile = apiService.updateUserProfile(updated);
+            setUserProfile(updatedProfile);
+            showToast(`Currency updated to ${updated.currency || 'preferred currency'}`);
+          }}
+          onResetWorkspace={() => {
+            apiService.clearAllLocalData();
+            loadGroups();
+            setSelectedGroup(null);
+            setUserProfile(apiService.getUserProfile());
+            showToast('Workspace data has been reset.');
+          }}
+        />
+      )}
 
-        {isNewGroupOpen && (
-          <NewGroupModal
-            onClose={() => setIsNewGroupOpen(false)}
-            onCreateGroup={handleCreateGroup}
-            userName={userProfile?.full_name}
-          />
-        )}
+      {isProfileOpen && (
+        <ProfileModal
+          profile={userProfile}
+          onClose={() => setIsProfileOpen(false)}
+          onSaveProfile={(updated) => {
+            const updatedProfile = apiService.updateUserProfile(updated);
+            setUserProfile(updatedProfile);
+            loadGroups();
+            showToast('Profile saved & synced across groups!');
+          }}
+        />
+      )}
+    </div>
+  );
 
-        {isNotificationsOpen && (
-          <NotificationsModal
-            onClose={() => setIsNotificationsOpen(false)}
-          />
-        )}
-
-        {isSettingsOpen && (
-          <SettingsModal
-            profile={userProfile}
-            onClose={() => setIsSettingsOpen(false)}
-            onSaveProfile={(updated) => {
-              const updatedProfile = apiService.updateUserProfile(updated);
-              setUserProfile(updatedProfile);
-              showToast(`Currency updated to ${updated.currency || 'preferred currency'}`);
-            }}
-            onResetWorkspace={() => {
-              apiService.clearAllLocalData();
-              loadGroups();
-              setSelectedGroup(null);
-              setUserProfile(apiService.getUserProfile());
-              showToast('Workspace data has been reset.');
-            }}
-          />
-        )}
-
-        {isProfileOpen && (
-          <ProfileModal
-            profile={userProfile}
-            onClose={() => setIsProfileOpen(false)}
-            onSaveProfile={(updated) => {
-              const updatedProfile = apiService.updateUserProfile(updated);
-              setUserProfile(updatedProfile);
-              loadGroups();
-              showToast('Profile saved & synced across groups!');
-            }}
-          />
-        )}
-      </div>
+  return (
+    <ErrorBoundary>
+      {isClerkConfigured ? (
+        <>
+          <SignedOut>
+            <AuthScreen />
+          </SignedOut>
+          <SignedIn>
+            {appBody}
+          </SignedIn>
+        </>
+      ) : (
+        appBody
+      )}
     </ErrorBoundary>
   );
 }

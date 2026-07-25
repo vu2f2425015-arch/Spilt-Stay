@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 interface MemberInput {
   name: string;
   phone: string;
+  email?: string;
 }
 
 interface NewGroupModalProps {
@@ -19,11 +20,11 @@ export const NewGroupModal: React.FC<NewGroupModalProps> = ({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [members, setMembers] = useState<MemberInput[]>([
-    { name: '', phone: '' }
+    { name: '', phone: '', email: '' }
   ]);
 
   const handleAddMemberRow = () => {
-    setMembers([...members, { name: '', phone: '' }]);
+    setMembers([...members, { name: '', phone: '', email: '' }]);
   };
 
   const handleRemoveMemberRow = (index: number) => {
@@ -93,37 +94,49 @@ export const NewGroupModal: React.FC<NewGroupModalProps> = ({
             />
           </div>
 
-          {/* Members list with Phone Numbers */}
+          {/* Members list with Email & Phone */}
           <div className="space-y-sm">
             <div className="flex justify-between items-center">
               <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
-                Roommates / Members (Name & Phone)
+                Roommates / Members (Email & Phone)
               </label>
-              <span className="text-[11px] text-primary">📱 Automatic SMS Alerts</span>
+              <span className="text-[11px] text-primary">📧 Email Sync & SMS Alerts</span>
             </div>
 
             <div className="bg-surface-container-low p-sm rounded-lg border border-outline-variant/30 text-xs text-on-surface-variant mb-2">
-              You ({userName}) are automatically added as the group owner. Add roomies below:
+              You ({userName}) are automatically added as owner. Add roomies by email to connect accounts automatically!
             </div>
 
             <div className="space-y-md">
               {members.map((member, idx) => (
                 <div key={idx} className="flex gap-2 items-center">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1">
                     <input
                       type="text"
-                      placeholder={`Roommate ${idx + 1} Name`}
+                      placeholder={`Name ${idx + 1}`}
                       value={member.name}
                       onChange={(e) => handleMemberChange(idx, 'name', e.target.value)}
                       className="bg-surface-container border border-outline-variant/50 rounded-lg px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:border-primary focus:outline-none"
                     />
                     <div className="relative">
                       <span className="material-symbols-outlined absolute left-2.5 top-2.5 text-on-surface-variant text-base">
+                        mail
+                      </span>
+                      <input
+                        type="email"
+                        placeholder="Email ID"
+                        value={member.email || ''}
+                        onChange={(e) => handleMemberChange(idx, 'email', e.target.value)}
+                        className="w-full bg-surface-container border border-outline-variant/50 rounded-lg pl-8 pr-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:border-primary focus:outline-none"
+                      />
+                    </div>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-2.5 top-2.5 text-on-surface-variant text-base">
                         smartphone
                       </span>
                       <input
                         type="tel"
-                        placeholder="Phone (e.g. +1 555 123 4567)"
+                        placeholder="Phone (SMS)"
                         value={member.phone}
                         onChange={(e) => handleMemberChange(idx, 'phone', e.target.value)}
                         className="w-full bg-surface-container border border-outline-variant/50 rounded-lg pl-8 pr-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:border-primary focus:outline-none"
