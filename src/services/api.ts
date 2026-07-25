@@ -1,6 +1,7 @@
 import { Group, Expense, Settlement, RecurringExpense, SMSNotification, GroupMember, UserProfile } from '../types';
 import { supabase } from '../lib/supabase';
 import { formatCurrency } from '../utils/currency';
+import { cleanPhoneForWhatsApp, getWhatsAppUrl } from '../utils/whatsapp';
 
 const STORAGE_KEYS = {
   GROUPS: 'splitstay_groups_v2',
@@ -600,6 +601,8 @@ export const apiService = {
         if (split.user_id !== expenseData.paid_by && split.phone_number) {
           const formattedSplit = formatCurrency(split.amount_owed, userCurr);
           const msg = `SplitStay Alert: ${expenseData.paid_by_name} added '${expenseData.title}' (${formattedTotal}). Your split is ${formattedSplit}.`;
+          const cleanPhone = cleanPhoneForWhatsApp(split.phone_number);
+          const waUrl = getWhatsAppUrl(split.phone_number, msg);
 
           const notif: SMSNotification = {
             id: uid('sms'),
@@ -607,7 +610,8 @@ export const apiService = {
             phone_number: split.phone_number,
             message: msg,
             sent_at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            status: 'delivered'
+            status: 'delivered',
+            whatsapp_url: waUrl
           };
           notificationsSent.push(notif);
 
@@ -615,8 +619,9 @@ export const apiService = {
           if (supabase) {
             supabase.functions.invoke('send-whatsapp', {
               body: {
-                phone_number: split.phone_number,
-                message: msg
+                phone_number: cleanPhone || split.phone_number,
+                message: msg,
+                recipient_name: split.full_name
               }
             }).then(res => {
               if (res.error) {
@@ -776,6 +781,8 @@ export const apiService = {
       const userCurr = this.getUserProfile().currency;
       const formattedAmount = formatCurrency(settlementData.amount, userCurr);
       const msg = `SplitStay Payment Alert: ${settlementData.payer_name} paid you ${formattedAmount} via ${settlementData.payment_method.toUpperCase()}.`;
+      const cleanPhone = cleanPhoneForWhatsApp(settlementData.payee_phone);
+      const waUrl = getWhatsAppUrl(settlementData.payee_phone, msg);
 
       notification = {
         id: uid('sms'),
@@ -783,7 +790,8 @@ export const apiService = {
         phone_number: settlementData.payee_phone,
         message: msg,
         sent_at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        status: 'delivered'
+        status: 'delivered',
+        whatsapp_url: waUrl
       };
       notificationsState = [notification, ...notificationsState];
       saveStored(STORAGE_KEYS.NOTIFICATIONS, notificationsState);
@@ -792,8 +800,9 @@ export const apiService = {
       if (supabase) {
         supabase.functions.invoke('send-whatsapp', {
           body: {
-            phone_number: settlementData.payee_phone,
-            message: msg
+            phone_number: cleanPhone || settlementData.payee_phone,
+            message: msg,
+            recipient_name: settlementData.payee_name
           }
         }).then(res => {
           if (res.error) {
