@@ -8,20 +8,21 @@ export const AuthScreen: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#0B0F19] text-[#F1F5F9] flex flex-col justify-between p-4 md:p-8 font-sans animate-fade-in-up relative">
       {/* Interactive Galaxy Background */}
-      <div className="fixed inset-0 z-0 opacity-40 pointer-events-none overflow-hidden">
+      <div className="fixed inset-0 z-0 opacity-90 pointer-events-none overflow-hidden">
         <Galaxy 
           mouseRepulsion
           mouseInteraction
-          density={1}
-          glowIntensity={0.3}
-          saturation={0}
-          hueShift={140}
-          twinkleIntensity={0.3}
-          rotationSpeed={0.1}
-          repulsionStrength={2}
+          density={1.5}
+          glowIntensity={1.5}
+          saturation={0.9}
+          hueShift={220}
+          twinkleIntensity={0.5}
+          rotationSpeed={0.15}
+          repulsionStrength={2.5}
           autoCenterRepulsion={0}
-          starSpeed={0.5}
+          starSpeed={0.8}
           speed={1}
+          transparent={true}
         />
       </div>
       {/* Top Bar */}
