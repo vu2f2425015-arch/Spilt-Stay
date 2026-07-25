@@ -6,12 +6,17 @@ interface ProfileModalProps {
   profile: UserProfile;
   onClose: () => void;
   onSaveProfile: (updated: Partial<UserProfile>) => void;
+  // Onboarding mode: shown right after sign-in when a required detail
+  // (currently phone number, needed for SMS/WhatsApp alerts) is missing.
+  // Hides the Cancel/close controls and requires phone before saving.
+  required?: boolean;
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
   profile,
   onClose,
-  onSaveProfile
+  onSaveProfile,
+  required = false
 }) => {
   const { user } = useUser();
   const clerkEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || '';
@@ -74,16 +79,24 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               <img src={avatarUrl || sampleAvatars[0]} alt="Avatar" className="w-full h-full object-cover" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-on-surface">Your Account Profile</h2>
-              <p className="text-xs text-on-surface-variant">Update contact info & payment tags for roomies</p>
+              <h2 className="text-lg font-bold text-on-surface">
+                {required ? 'Complete Your Profile' : 'Your Account Profile'}
+              </h2>
+              <p className="text-xs text-on-surface-variant">
+                {required
+                  ? 'We need a phone number to send you SMS/WhatsApp expense alerts before you continue.'
+                  : 'Update contact info & payment tags for roomies'}
+              </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-container-high transition-colors"
-          >
-            <span className="material-symbols-outlined">close</span>
-          </button>
+          {!required && (
+            <button
+              onClick={onClose}
+              className="p-1.5 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-container-high transition-colors"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          )}
         </div>
 
         {/* Saved Toast Banner */}
@@ -145,7 +158,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           {/* Phone Number & Preferred Currency */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
             <div className="space-y-xs">
-              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Phone Number (SMS Alerts)</label>
+              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
+                Phone Number (SMS Alerts) {required && '*'}
+              </label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-2.5 top-2.5 text-primary text-base">phone</span>
                 <input
@@ -153,9 +168,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+1 (555) 000-0000"
+                  required={required}
                   className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg pl-8 pr-md py-2.5 text-on-surface focus:border-primary focus:outline-none"
                 />
               </div>
+              {required && (
+                <p className="text-[11px] text-on-surface-variant pt-1">
+                  Roommates get SMS/WhatsApp alerts at this number when expenses are added or settled.
+                </p>
+              )}
             </div>
             <div className="space-y-xs">
               <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Preferred Currency</label>
@@ -214,18 +235,20 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
           {/* Action Buttons */}
           <div className="flex justify-end gap-md pt-md border-t border-outline-variant/40">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-lg py-md text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-xl transition-colors"
-            >
-              Cancel
-            </button>
+            {!required && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-lg py-md text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+            )}
             <button
               type="submit"
               className="bg-primary-container text-on-primary-container px-xl py-md text-sm font-semibold rounded-xl shadow-lg shadow-primary-container/20 active:scale-95 transition-all"
             >
-              Save Changes
+              {required ? 'Continue to Dashboard' : 'Save Changes'}
             </button>
           </div>
         </form>
