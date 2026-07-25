@@ -11,6 +11,13 @@ const STORAGE_KEYS = {
   PROFILE: 'splitstay_user_profile_v2'
 };
 
+const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
+
+// Local-mode-only placeholder profile. When Clerk is configured, App.tsx
+// overwrites this with the real signed-in user's id/email/name on load,
+// and every "who am I" comparison below reads that id dynamically rather
+// than hardcoding a literal string - so the same code path is correct in
+// both local demo mode and real multi-user mode.
 const DEFAULT_PROFILE: UserProfile = {
   id: 'user_current',
   full_name: 'Alex Morgan',
@@ -21,6 +28,16 @@ const DEFAULT_PROFILE: UserProfile = {
   cash_app_handle: '$alexmorgan',
   bio: 'Apartment 4B resident • Primary utility payer',
   currency: 'USD ($)'
+};
+
+// Generate a collision-resistant id. crypto.randomUUID() is available in
+// all modern browsers (and Vite's dev/build targets); Date.now()-based
+// ids could collide across two members acting in the same millisecond.
+const uid = (prefix: string): string => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
 // Safe Local Storage Helper
@@ -61,24 +78,59 @@ const sanitizeGroup = (g: Group): Group => {
   };
 };
 
+// Normalize a join code down to its bare alphanumeric core so
+// "STAY-AB12", "stay-ab12", and "AB12" all compare equal - but nothing
+// else does. (The previous implementation used fuzzy substring matching,
+// which could match the wrong group on short codes.)
+const normalizeCode = (raw: string): string =>
+  raw.trim().toUpperCase().replace(/^STAY-?/, '').replace(/[^A-Z0-9]/g, '');
+
+const codeForGroup = (g: { id: string; join_code?: string }): string => {
+  if (g.join_code) return normalizeCode(g.join_code);
+  // Deterministic fallback for legacy rows created before join_code existed
+  return (g.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase();
+};
+
+const mapRemoteMember = (m: any): GroupMember => ({
+  id: m.id,
+  user_id: m.user_id || m.id,
+  full_name: m.full_name,
+  email: m.email,
+  phone_number: m.phone_number,
+  avatar_url: m.avatar_url || DEFAULT_AVATAR,
+  role: (m.role as 'owner' | 'admin' | 'member') || 'member',
+  balance: Number(m.balance || 0)
+});
+
 export const apiService = {
   isConfigured: true,
+
+  // The single source of truth for "who is the signed-in user right now".
+  // Every balance/ownership comparison below should go through this
+  // instead of a hardcoded id, so the same logic works for the local
+  // demo profile and for real Clerk-authenticated users alike.
+  getCurrentUserId(): string {
+    return profileState.id;
+  },
 
   // --- GROUPS ---
   async getGroups(): Promise<Group[]> {
     const profile = getStored<UserProfile>(STORAGE_KEYS.PROFILE, DEFAULT_PROFILE);
     const localGroups = getStored<Group[]>(STORAGE_KEYS.GROUPS, []);
-    
+
     if (supabase && profile.email && !profile.email.includes('alex@example.com')) {
       try {
+        // RLS scopes group_members to rows the caller is allowed to see,
+        // but we still filter defensively by user_id/email to be explicit
+        // about which memberships belong to this user.
         const { data: memberRecords, error: memberError } = await supabase
           .from('group_members')
           .select('group_id')
-          .ilike('email', profile.email.trim());
+          .or(`user_id.eq.${profile.id},email.ilike.${profile.email.trim()}`);
 
         if (!memberError && memberRecords && memberRecords.length > 0) {
           const groupIds = Array.from(new Set(memberRecords.map(m => m.group_id)));
-          
+
           const { data: remoteGroups } = await supabase
             .from('groups')
             .select('*')
@@ -93,24 +145,16 @@ export const apiService = {
             const assembled: Group[] = remoteGroups.map(rg => {
               const members = (remoteMembers || [])
                 .filter(m => m.group_id === rg.id)
-                .map(m => ({
-                  id: m.id,
-                  user_id: m.user_id || m.id,
-                  full_name: m.full_name,
-                  email: m.email,
-                  phone_number: m.phone_number,
-                  avatar_url: m.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-                  role: (m.role as 'owner' | 'admin' | 'member') || 'member',
-                  balance: Number(m.balance || 0)
-                }));
+                .map(mapRemoteMember);
 
-              const fallbackCode = `STAY-${(rg.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase()}`;
-              const myMem = members.find(m => m.email.toLowerCase() === profile.email.toLowerCase());
+              const myMem = members.find(m => m.user_id === profile.id) ||
+                members.find(m => m.email && m.email.toLowerCase() === profile.email.toLowerCase());
+
               return {
                 id: rg.id,
                 name: rg.name,
                 description: rg.description || '',
-                join_code: rg.join_code || fallbackCode,
+                join_code: rg.join_code || codeForGroup(rg),
                 created_at: rg.created_at ? rg.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
                 last_activity: rg.last_activity || 'Recent',
                 user_balance: myMem ? myMem.balance : 0,
@@ -118,16 +162,20 @@ export const apiService = {
               };
             });
 
-            // Safely merge remote groups with local groups
-            const remoteIds = new Set(assembled.map(g => g.id));
-            const extraLocal = localGroups.filter(g => !remoteIds.has(g.id));
-            groupsState = [...assembled, ...extraLocal].map(g => ({
-              ...g,
-              join_code: g.join_code || `STAY-${(g.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase()}`
-            }));
+            // Supabase is authoritative once configured & the user is signed
+            // in with a real account. Local storage is kept only as an
+            // offline mirror for that same account - we no longer silently
+            // keep around unrelated locally-cached groups from a previous
+            // (possibly different) local session.
+            groupsState = assembled;
             saveStored(STORAGE_KEYS.GROUPS, groupsState);
             return groupsState.map(sanitizeGroup);
           }
+
+          // Signed in, but no remote groups found for this account.
+          groupsState = [];
+          saveStored(STORAGE_KEYS.GROUPS, groupsState);
+          return [];
         }
       } catch (err) {
         console.warn('Supabase fetch groups error:', err);
@@ -136,7 +184,7 @@ export const apiService = {
 
     groupsState = (localGroups.length > 0 ? localGroups : groupsState).map(g => ({
       ...g,
-      join_code: g.join_code || `STAY-${(g.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase()}`
+      join_code: g.join_code || codeForGroup(g)
     }));
     return groupsState.map(sanitizeGroup);
   },
@@ -155,10 +203,10 @@ export const apiService = {
 
     const profile = getStored<UserProfile>(STORAGE_KEYS.PROFILE, DEFAULT_PROFILE);
     const joinCode = 'STAY-' + Math.random().toString(36).substring(2, 6).toUpperCase();
-    
+
     const currentMember: GroupMember = {
-      id: `mem-${Date.now()}-0`,
-      user_id: profile.id || `user-${Date.now()}`,
+      id: uid('mem'),
+      user_id: profile.id || uid('user'),
       full_name: profile.full_name || 'Alex Morgan',
       email: profile.email ? profile.email.trim().toLowerCase() : 'alex@example.com',
       phone_number: profile.phone_number || '+1 (555) 019-2831',
@@ -170,8 +218,8 @@ export const apiService = {
     const parsedMembers: GroupMember[] = rawMembers
       .filter(m => m.name && m.name.trim().length > 0)
       .map((m, idx) => ({
-        id: `mem-${Date.now()}-${idx + 1}`,
-        user_id: `user_${Date.now()}_${idx}`,
+        id: uid('mem'),
+        user_id: uid('user'),
         full_name: m.name.trim(),
         phone_number: m.phone ? m.phone.trim() : undefined,
         email: m.email && m.email.trim() ? m.email.trim().toLowerCase() : `${m.name.toLowerCase().replace(/\s+/g, '')}@example.com`,
@@ -181,7 +229,7 @@ export const apiService = {
       }));
 
     const newGroup: Group = {
-      id: `group-${Date.now()}`,
+      id: uid('group'),
       name: name.trim(),
       description: description ? description.trim() : '',
       join_code: joinCode,
@@ -191,12 +239,9 @@ export const apiService = {
       members: [currentMember, ...parsedMembers]
     };
 
-    groupsState = [newGroup, ...groupsState];
-    saveStored(STORAGE_KEYS.GROUPS, groupsState);
-
     if (supabase) {
       try {
-        await supabase.from('groups').insert([{
+        const { error: groupErr } = await supabase.from('groups').insert([{
           id: newGroup.id,
           name: newGroup.name,
           description: newGroup.description,
@@ -205,6 +250,7 @@ export const apiService = {
           created_at: new Date().toISOString(),
           last_activity: 'Just created'
         }]);
+        if (groupErr) throw groupErr;
 
         const supabaseMembers = [currentMember, ...parsedMembers].map(m => ({
           id: m.id,
@@ -218,137 +264,90 @@ export const apiService = {
           balance: m.balance
         }));
 
-        await supabase.from('group_members').insert(supabaseMembers);
+        const { error: memErr } = await supabase.from('group_members').insert(supabaseMembers);
+        if (memErr) throw memErr;
       } catch (err) {
-        console.warn('Supabase group create warning:', err);
+        console.warn('Supabase group create warning (group saved locally only):', err);
       }
     }
+
+    groupsState = [newGroup, ...groupsState];
+    saveStored(STORAGE_KEYS.GROUPS, groupsState);
 
     return sanitizeGroup(newGroup);
   },
 
   async joinGroupWithCode(joinCode: string): Promise<Group | null> {
-    const rawInput = joinCode.trim().toUpperCase();
-    if (!rawInput) return null;
+    const target = normalizeCode(joinCode);
+    if (!target) return null;
 
     const profile = getStored<UserProfile>(STORAGE_KEYS.PROFILE, DEFAULT_PROFILE);
-
-    const cleanAlphaNum = rawInput.replace(/[^A-Z0-9]/g, '');
-    const withoutPrefix = rawInput.replace(/^STAY-?/, '');
-    const withPrefix = rawInput.startsWith('STAY-') ? rawInput : `STAY-${withoutPrefix}`;
-
-    const variants = Array.from(new Set([
-      rawInput,
-      withPrefix,
-      withoutPrefix,
-      cleanAlphaNum
-    ])).filter(v => v.length > 0);
-
-    const matchGroupWithCode = (g: any): boolean => {
-      if (!g) return false;
-      const gJoinCode = (g.join_code || '').toUpperCase();
-      const gId = (g.id || '').toUpperCase();
-      const gName = (g.name || '').toUpperCase();
-      
-      const gIdSuffix = (g.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase();
-      const gIdCode = `STAY-${gIdSuffix}`;
-
-      const candidateCodes = [
-        gJoinCode,
-        gJoinCode.replace(/[^A-Z0-9]/g, ''),
-        gJoinCode.replace(/^STAY-?/, ''),
-        gId,
-        gId.replace(/[^A-Z0-9]/g, ''),
-        gIdSuffix,
-        gIdCode,
-        gIdCode.replace(/[^A-Z0-9]/g, ''),
-        gName,
-        gName.replace(/[^A-Z0-9]/g, '')
-      ].filter(Boolean);
-
-      return variants.some(v => 
-        candidateCodes.some(c => c === v || c.includes(v) || v.includes(c))
-      );
-    };
-
     let targetGroup: Group | null = null;
 
     if (supabase) {
       try {
-        const { data: allRemote } = await supabase
-          .from('groups')
-          .select('*');
+        // Exact match only: compare the normalized code the user typed
+        // against each group's normalized code, rather than doing fuzzy
+        // substring matching (which could match the wrong group).
+        const { data: allRemote } = await supabase.from('groups').select('*');
+        const matchedRemote = (allRemote || []).find(rg => codeForGroup(rg) === target);
 
-        if (allRemote && allRemote.length > 0) {
-          const matchedRemote = allRemote.find(rg => matchGroupWithCode(rg));
+        if (matchedRemote) {
+          const rg = matchedRemote;
+          const { data: remoteMembers } = await supabase
+            .from('group_members')
+            .select('*')
+            .eq('group_id', rg.id);
 
-          if (matchedRemote) {
-            const rg = matchedRemote;
-            const { data: remoteMembers } = await supabase
-              .from('group_members')
-              .select('*')
-              .eq('group_id', rg.id);
+          const members: GroupMember[] = (remoteMembers || []).map(mapRemoteMember);
 
-            const members: GroupMember[] = (remoteMembers || []).map(m => ({
-              id: m.id,
-              user_id: m.user_id || m.id,
-              full_name: m.full_name,
-              email: m.email,
-              phone_number: m.phone_number,
-              avatar_url: m.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-              role: (m.role as 'owner' | 'admin' | 'member') || 'member',
-              balance: Number(m.balance || 0)
-            }));
+          const alreadyMember = members.some(m =>
+            m.user_id === profile.id ||
+            (m.email && profile.email && m.email.toLowerCase() === profile.email.toLowerCase())
+          );
 
-            const alreadyMember = members.some(m => 
-              (m.email && profile.email && m.email.toLowerCase() === profile.email.toLowerCase()) || 
-              (m.user_id && profile.id && m.user_id === profile.id)
-            );
-
-            if (!alreadyMember) {
-              const newMem: GroupMember = {
-                id: `mem-${Date.now()}`,
-                user_id: profile.id || `user-${Date.now()}`,
-                full_name: profile.full_name || 'Roommate',
-                email: profile.email ? profile.email.trim().toLowerCase() : 'user@example.com',
-                phone_number: profile.phone_number,
-                avatar_url: profile.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-                role: 'member',
-                balance: 0.00
-              };
-
-              await supabase.from('group_members').insert([{
-                id: newMem.id,
-                group_id: rg.id,
-                user_id: newMem.user_id,
-                email: newMem.email,
-                full_name: newMem.full_name,
-                phone_number: newMem.phone_number,
-                avatar_url: newMem.avatar_url,
-                role: newMem.role,
-                balance: 0.00
-              }]);
-
-              members.push(newMem);
-            }
-
-            const matchedCode = rawInput.startsWith('STAY-') ? rawInput : `STAY-${rawInput}`;
-
-            if (!rg.join_code) {
-              await supabase.from('groups').update({ join_code: matchedCode }).eq('id', rg.id);
-            }
-
-            targetGroup = {
-              id: rg.id,
-              name: rg.name,
-              description: rg.description || '',
-              join_code: matchedCode,
-              created_at: rg.created_at ? rg.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
-              last_activity: 'Joined via code',
-              user_balance: 0.00,
-              members
+          if (!alreadyMember) {
+            const newMem: GroupMember = {
+              id: uid('mem'),
+              user_id: profile.id || uid('user'),
+              full_name: profile.full_name || 'Roommate',
+              email: profile.email ? profile.email.trim().toLowerCase() : 'user@example.com',
+              phone_number: profile.phone_number,
+              avatar_url: profile.avatar_url || DEFAULT_AVATAR,
+              role: 'member',
+              balance: 0.00
             };
+
+            const { error: insertErr } = await supabase.from('group_members').insert([{
+              id: newMem.id,
+              group_id: rg.id,
+              user_id: newMem.user_id,
+              email: newMem.email,
+              full_name: newMem.full_name,
+              phone_number: newMem.phone_number,
+              avatar_url: newMem.avatar_url,
+              role: newMem.role,
+              balance: 0.00
+            }]);
+            if (insertErr) throw insertErr;
+
+            members.push(newMem);
           }
+
+          if (!rg.join_code) {
+            await supabase.from('groups').update({ join_code: `STAY-${target}` }).eq('id', rg.id);
+          }
+
+          targetGroup = {
+            id: rg.id,
+            name: rg.name,
+            description: rg.description || '',
+            join_code: rg.join_code || `STAY-${target}`,
+            created_at: rg.created_at ? rg.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+            last_activity: 'Joined via code',
+            user_balance: 0.00,
+            members
+          };
         }
       } catch (err) {
         console.warn('Supabase join group error:', err);
@@ -358,24 +357,24 @@ export const apiService = {
     if (!targetGroup) {
       const localGroups = getStored<Group[]>(STORAGE_KEYS.GROUPS, groupsState);
       const candidates = [...localGroups, ...groupsState];
-      const found = candidates.find(g => matchGroupWithCode(g));
+      const found = candidates.find(g => codeForGroup(g) === target);
 
       if (found) {
-        targetGroup = { ...found };
-        targetGroup.join_code = rawInput.startsWith('STAY-') ? rawInput : `STAY-${rawInput}`;
-        
-        const alreadyMem = targetGroup.members.some(m => 
-          (m.email && profile.email && m.email.toLowerCase() === profile.email.toLowerCase()) ||
-          (m.user_id && profile.id && m.user_id === profile.id)
+        targetGroup = { ...found, members: [...found.members] };
+        targetGroup.join_code = `STAY-${target}`;
+
+        const alreadyMem = targetGroup.members.some(m =>
+          m.user_id === profile.id ||
+          (m.email && profile.email && m.email.toLowerCase() === profile.email.toLowerCase())
         );
         if (!alreadyMem) {
           targetGroup.members.push({
-            id: `mem-${Date.now()}`,
-            user_id: profile.id || `user-${Date.now()}`,
+            id: uid('mem'),
+            user_id: profile.id || uid('user'),
             full_name: profile.full_name || 'Roommate',
             email: profile.email ? profile.email.trim().toLowerCase() : 'user@example.com',
             phone_number: profile.phone_number,
-            avatar_url: profile.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+            avatar_url: profile.avatar_url || DEFAULT_AVATAR,
             role: 'member',
             balance: 0.00
           });
@@ -406,24 +405,19 @@ export const apiService = {
     const group = groupsState[groupIndex];
     const memberEmail = email && email.trim() ? email.trim().toLowerCase() : `${name.toLowerCase().replace(/\s+/g, '')}@example.com`;
     const newMember: GroupMember = {
-      id: `mem-${Date.now()}`,
-      user_id: `user_${Date.now()}`,
+      id: uid('mem'),
+      user_id: uid('user'),
       full_name: name.trim(),
       phone_number: phone ? phone.trim() : undefined,
       email: memberEmail,
-      avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+      avatar_url: DEFAULT_AVATAR,
       role: 'member',
       balance: 0.00,
     };
 
-    group.members = [...(group.members || []), newMember];
-    group.last_activity = 'Member added';
-    groupsState[groupIndex] = group;
-    saveStored(STORAGE_KEYS.GROUPS, groupsState);
-
     if (supabase) {
       try {
-        await supabase.from('group_members').insert([{
+        const { error } = await supabase.from('group_members').insert([{
           id: newMember.id,
           group_id: groupId,
           user_id: newMember.user_id,
@@ -434,15 +428,31 @@ export const apiService = {
           role: newMember.role,
           balance: 0.00
         }]);
+        if (error) throw error;
       } catch (err) {
-        console.warn('Supabase add member warning:', err);
+        console.warn('Supabase add member warning (saved locally only):', err);
       }
     }
+
+    group.members = [...(group.members || []), newMember];
+    group.last_activity = 'Member added';
+    groupsState[groupIndex] = group;
+    saveStored(STORAGE_KEYS.GROUPS, groupsState);
 
     return sanitizeGroup(group);
   },
 
   async deleteGroup(groupId: string): Promise<boolean> {
+    if (supabase) {
+      try {
+        // ON DELETE CASCADE on every child table's group_id FK handles
+        // expenses/splits/settlements/recurring/members cleanup remotely.
+        await supabase.from('groups').delete().eq('id', groupId);
+      } catch (err) {
+        console.warn('Supabase delete group warning:', err);
+      }
+    }
+
     groupsState = groupsState.filter(g => g.id !== groupId);
     expensesState = expensesState.filter(e => e.group_id !== groupId);
     settlementsState = settlementsState.filter(s => s.group_id !== groupId);
@@ -457,6 +467,54 @@ export const apiService = {
 
   // --- EXPENSES & SMS NOTIFICATIONS ---
   async getExpenses(groupId: string): Promise<Expense[]> {
+    if (supabase) {
+      try {
+        const { data: remoteExpenses, error } = await supabase
+          .from('expenses')
+          .select('*')
+          .eq('group_id', groupId)
+          .order('created_at', { ascending: false });
+
+        if (!error && remoteExpenses) {
+          const { data: remoteSplits } = await supabase
+            .from('expense_splits')
+            .select('*')
+            .eq('group_id', groupId);
+
+          const assembled: Expense[] = remoteExpenses.map(re => ({
+            id: re.id,
+            group_id: re.group_id,
+            paid_by: re.payer_id,
+            paid_by_name: re.payer_name || '',
+            paid_by_avatar: DEFAULT_AVATAR,
+            title: re.title,
+            amount: Number(re.amount),
+            category: re.category,
+            expense_date: re.date,
+            splits: (remoteSplits || [])
+              .filter(s => s.expense_id === re.id)
+              .map(s => ({
+                user_id: s.member_id,
+                full_name: s.member_name,
+                phone_number: s.phone_number,
+                avatar_url: '',
+                amount_owed: Number(s.amount),
+                paid: Boolean(s.paid)
+              }))
+          }));
+
+          expensesState = [
+            ...assembled,
+            ...expensesState.filter(e => e.group_id !== groupId)
+          ];
+          saveStored(STORAGE_KEYS.EXPENSES, expensesState);
+          return assembled;
+        }
+      } catch (err) {
+        console.warn('Supabase fetch expenses error (falling back to local cache):', err);
+      }
+    }
+
     if (expensesState.length === 0) {
       expensesState = getStored(STORAGE_KEYS.EXPENSES, []);
     }
@@ -473,16 +531,17 @@ export const apiService = {
     splits: { user_id: string; full_name: string; phone_number?: string; amount_owed: number }[];
     sendSMSNotification?: boolean;
   }): Promise<{ expense: Expense; notificationsSent: SMSNotification[] }> {
+    const expenseDate = new Date().toISOString().split('T')[0];
     const newExpense: Expense = {
-      id: `exp-${Date.now()}`,
+      id: uid('exp'),
       group_id: expenseData.group_id,
       paid_by: expenseData.paid_by,
       paid_by_name: expenseData.paid_by_name,
-      paid_by_avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      paid_by_avatar: DEFAULT_AVATAR,
       title: expenseData.title,
       amount: expenseData.amount,
       category: expenseData.category,
-      expense_date: new Date().toISOString().split('T')[0],
+      expense_date: expenseDate,
       splits: expenseData.splits.map(s => ({
         user_id: s.user_id,
         full_name: s.full_name,
@@ -492,6 +551,37 @@ export const apiService = {
         paid: s.user_id === expenseData.paid_by
       }))
     };
+
+    if (supabase) {
+      try {
+        const { error: expErr } = await supabase.from('expenses').insert([{
+          id: newExpense.id,
+          group_id: newExpense.group_id,
+          title: newExpense.title,
+          amount: newExpense.amount,
+          category: newExpense.category,
+          date: newExpense.expense_date,
+          payer_id: newExpense.paid_by,
+          payer_name: newExpense.paid_by_name
+        }]);
+        if (expErr) throw expErr;
+
+        const splitRows = newExpense.splits.map(s => ({
+          id: uid('split'),
+          expense_id: newExpense.id,
+          group_id: newExpense.group_id,
+          member_id: s.user_id,
+          member_name: s.full_name,
+          phone_number: s.phone_number,
+          amount: s.amount_owed,
+          paid: s.paid
+        }));
+        const { error: splitErr } = await supabase.from('expense_splits').insert(splitRows);
+        if (splitErr) throw splitErr;
+      } catch (err) {
+        console.warn('Supabase add expense warning (saved locally only):', err);
+      }
+    }
 
     expensesState = [newExpense, ...expensesState];
     saveStored(STORAGE_KEYS.EXPENSES, expensesState);
@@ -506,9 +596,9 @@ export const apiService = {
         if (split.user_id !== expenseData.paid_by && split.phone_number) {
           const formattedSplit = formatCurrency(split.amount_owed, userCurr);
           const msg = `SplitStay Alert: ${expenseData.paid_by_name} added '${expenseData.title}' (${formattedTotal}). Your split is ${formattedSplit}.`;
-          
+
           const notif: SMSNotification = {
-            id: `sms-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            id: uid('sms'),
             recipient_name: split.full_name,
             phone_number: split.phone_number,
             message: msg,
@@ -539,14 +629,16 @@ export const apiService = {
         saveStored(STORAGE_KEYS.NOTIFICATIONS, notificationsState);
       }
     }
-    
-    // Update group member balances safely
+
+    // Update group member balances (locally, and mirrored to Supabase so
+    // every member's view of the group stays in sync, not just this
+    // browser's local cache).
     const groupIndex = groupsState.findIndex(g => g.id === expenseData.group_id);
     if (groupIndex !== -1) {
       const group = groupsState[groupIndex];
       const members = Array.isArray(group.members) ? group.members : [];
-      
-      group.members = members.map(m => {
+
+      const updatedMembers = members.map(m => {
         let delta = 0;
         if (m.user_id === expenseData.paid_by) {
           const othersOwed = expenseData.splits
@@ -562,11 +654,27 @@ export const apiService = {
         return { ...m, balance: m.balance + delta };
       });
 
-      const userMem = group.members.find(m => m.user_id === 'user_current');
+      group.members = updatedMembers;
+      const userMem = group.members.find(m => m.user_id === this.getCurrentUserId());
       group.user_balance = userMem ? userMem.balance : 0;
       group.last_activity = 'Expense added';
 
       saveStored(STORAGE_KEYS.GROUPS, groupsState);
+
+      if (supabase) {
+        try {
+          await Promise.all(
+            updatedMembers
+              .filter(m => {
+                const orig = members.find(om => om.id === m.id);
+                return orig && orig.balance !== m.balance;
+              })
+              .map(m => supabase.from('group_members').update({ balance: m.balance }).eq('id', m.id))
+          );
+        } catch (err) {
+          console.warn('Supabase balance sync warning after expense:', err);
+        }
+      }
     }
 
     return { expense: newExpense, notificationsSent };
@@ -574,6 +682,39 @@ export const apiService = {
 
   // --- SETTLEMENTS ---
   async getSettlements(groupId: string): Promise<Settlement[]> {
+    if (supabase) {
+      try {
+        const { data: remoteSettlements, error } = await supabase
+          .from('settlements')
+          .select('*')
+          .eq('group_id', groupId)
+          .order('created_at', { ascending: false });
+
+        if (!error && remoteSettlements) {
+          const assembled: Settlement[] = remoteSettlements.map(rs => ({
+            id: rs.id,
+            group_id: rs.group_id,
+            payer_id: rs.payer_id,
+            payer_name: rs.payer_name || '',
+            payee_id: rs.payee_id,
+            payee_name: rs.payee_name || '',
+            amount: Number(rs.amount),
+            payment_method: rs.payment_method,
+            settled_at: rs.created_at || rs.date
+          }));
+
+          settlementsState = [
+            ...assembled,
+            ...settlementsState.filter(s => s.group_id !== groupId)
+          ];
+          saveStored(STORAGE_KEYS.SETTLEMENTS, settlementsState);
+          return assembled;
+        }
+      } catch (err) {
+        console.warn('Supabase fetch settlements error (falling back to local cache):', err);
+      }
+    }
+
     if (settlementsState.length === 0) {
       settlementsState = getStored(STORAGE_KEYS.SETTLEMENTS, []);
     }
@@ -592,7 +733,7 @@ export const apiService = {
     sendSMS?: boolean;
   }): Promise<{ settlement: Settlement; notification?: SMSNotification }> {
     const newSettlement: Settlement = {
-      id: `set-${Date.now()}`,
+      id: uid('set'),
       group_id: settlementData.group_id,
       payer_id: settlementData.payer_id,
       payer_name: settlementData.payer_name,
@@ -603,6 +744,25 @@ export const apiService = {
       settled_at: new Date().toISOString()
     };
 
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('settlements').insert([{
+          id: newSettlement.id,
+          group_id: newSettlement.group_id,
+          payer_id: newSettlement.payer_id,
+          payer_name: newSettlement.payer_name,
+          payee_id: newSettlement.payee_id,
+          payee_name: newSettlement.payee_name,
+          amount: newSettlement.amount,
+          payment_method: newSettlement.payment_method,
+          date: newSettlement.settled_at
+        }]);
+        if (error) throw error;
+      } catch (err) {
+        console.warn('Supabase add settlement warning (saved locally only):', err);
+      }
+    }
+
     settlementsState = [newSettlement, ...settlementsState];
     saveStored(STORAGE_KEYS.SETTLEMENTS, settlementsState);
 
@@ -611,9 +771,9 @@ export const apiService = {
       const userCurr = this.getUserProfile().currency;
       const formattedAmount = formatCurrency(settlementData.amount, userCurr);
       const msg = `SplitStay Payment Alert: ${settlementData.payer_name} paid you ${formattedAmount} via ${settlementData.payment_method.toUpperCase()}.`;
-      
+
       notification = {
-        id: `sms-${Date.now()}`,
+        id: uid('sms'),
         recipient_name: settlementData.payee_name,
         phone_number: settlementData.payee_phone,
         message: msg,
@@ -640,12 +800,12 @@ export const apiService = {
       }
     }
 
-    // Adjust balances
+    // Adjust balances (local + mirrored to Supabase)
     const groupIndex = groupsState.findIndex(g => g.id === settlementData.group_id);
     if (groupIndex !== -1) {
       const group = groupsState[groupIndex];
       const members = Array.isArray(group.members) ? group.members : [];
-      group.members = members.map(m => {
+      const updatedMembers = members.map(m => {
         if (m.user_id === settlementData.payer_id) {
           return { ...m, balance: m.balance + settlementData.amount };
         }
@@ -655,11 +815,25 @@ export const apiService = {
         return m;
       });
 
-      const userMem = group.members.find(m => m.user_id === 'user_current');
+      group.members = updatedMembers;
+      const userMem = group.members.find(m => m.user_id === this.getCurrentUserId());
       group.user_balance = userMem ? userMem.balance : 0;
       group.last_activity = 'Payment settled';
 
       saveStored(STORAGE_KEYS.GROUPS, groupsState);
+
+      if (supabase) {
+        try {
+          const changed = updatedMembers.filter(m =>
+            m.user_id === settlementData.payer_id || m.user_id === settlementData.payee_id
+          );
+          await Promise.all(
+            changed.map(m => supabase.from('group_members').update({ balance: m.balance }).eq('id', m.id))
+          );
+        } catch (err) {
+          console.warn('Supabase balance sync warning after settlement:', err);
+        }
+      }
     }
 
     return { settlement: newSettlement, notification };
@@ -667,6 +841,38 @@ export const apiService = {
 
   // --- RECURRING ---
   async getRecurring(groupId: string): Promise<RecurringExpense[]> {
+    if (supabase) {
+      try {
+        const { data: remoteRecurring, error } = await supabase
+          .from('recurring_expenses')
+          .select('*')
+          .eq('group_id', groupId);
+
+        if (!error && remoteRecurring) {
+          const assembled: RecurringExpense[] = remoteRecurring.map(rr => ({
+            id: rr.id,
+            group_id: rr.group_id,
+            title: rr.title,
+            amount: Number(rr.amount),
+            frequency: rr.frequency,
+            next_due: rr.next_due,
+            payer_id: rr.payer_id,
+            payer_name: rr.payer_name || '',
+            category: rr.category
+          }));
+
+          recurringState = [
+            ...assembled,
+            ...recurringState.filter(r => r.group_id !== groupId)
+          ];
+          saveStored(STORAGE_KEYS.RECURRING, recurringState);
+          return assembled;
+        }
+      } catch (err) {
+        console.warn('Supabase fetch recurring error (falling back to local cache):', err);
+      }
+    }
+
     if (recurringState.length === 0) {
       recurringState = getStored(STORAGE_KEYS.RECURRING, []);
     }
@@ -711,6 +917,19 @@ export const apiService = {
       })
     }));
     saveStored(STORAGE_KEYS.GROUPS, groupsState);
+
+    if (supabase && profileState.id) {
+      supabase.from('profiles').upsert([{
+        id: profileState.id,
+        email: profileState.email,
+        full_name: profileState.full_name,
+        avatar_url: profileState.avatar_url,
+        phone_number: profileState.phone_number,
+        updated_at: new Date().toISOString()
+      }]).then(res => {
+        if (res.error) console.warn('Supabase profile sync warning:', res.error);
+      });
+    }
 
     return profileState;
   },
