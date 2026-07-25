@@ -1,40 +1,31 @@
-// Real-world conversion rates relative to 1 USD base currency
-export const EXCHANGE_RATES: Record<string, number> = {
-  'USD ($)': 1.0,
-  'INR (₹)': 96.57, // 1 USD = 96.57 INR as requested by user
-  'EUR (€)': 0.92,  // 1 USD = 0.92 EUR
-  'GBP (£)': 0.78,  // 1 USD = 0.78 GBP
-  'CAD ($)': 1.36,  // 1 USD = 1.36 CAD
-};
-
 export const getCurrencySymbol = (currencySetting?: string): string => {
-  if (!currencySetting) return '$';
+  if (!currencySetting) return '₹';
   if (currencySetting.includes('INR') || currencySetting.includes('₹')) return '₹';
+  if (currencySetting.includes('USD') || currencySetting.includes('$')) return '$';
   if (currencySetting.includes('EUR') || currencySetting.includes('€')) return '€';
   if (currencySetting.includes('GBP') || currencySetting.includes('£')) return '£';
   if (currencySetting.includes('CAD')) return 'CA$';
-  return '$';
+  return '₹';
 };
 
-export const convertCurrency = (amountInUSD: number, targetCurrency?: string): number => {
-  const key = Object.keys(EXCHANGE_RATES).find(k => k === targetCurrency || (targetCurrency && k.includes(targetCurrency))) || 'USD ($)';
-  const rate = EXCHANGE_RATES[key] || 1.0;
-  return amountInUSD * rate;
+export const convertCurrency = (amount: number, targetCurrency?: string): number => {
+  const num = Number(parseFloat(String(amount || 0)).toFixed(2));
+  return isNaN(num) ? 0 : num;
 };
 
 export const parseInputAmountToUSD = (inputAmount: number, currentCurrencySetting?: string): number => {
-  const key = Object.keys(EXCHANGE_RATES).find(k => k === currentCurrencySetting || (currentCurrencySetting && k.includes(currentCurrencySetting))) || 'USD ($)';
-  const rate = EXCHANGE_RATES[key] || 1.0;
-  return inputAmount / rate;
+  const num = Number(parseFloat(String(inputAmount || 0)).toFixed(2));
+  return isNaN(num) ? 0 : num;
 };
 
-export const formatCurrency = (amountInUSD: number, currencySetting?: string): string => {
-  const converted = convertCurrency(amountInUSD, currencySetting);
-  const absVal = Math.abs(converted).toLocaleString(undefined, {
+export const formatCurrency = (amount: number, currencySetting?: string): string => {
+  const num = Number(parseFloat(String(amount || 0)).toFixed(2));
+  const safeNum = isNaN(num) || !isFinite(num) ? 0 : num;
+  const absVal = Math.abs(safeNum).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  const sign = amountInUSD < 0 ? '-' : '';
+  const sign = safeNum < 0 ? '-' : '';
   const symbol = getCurrencySymbol(currencySetting);
 
   return `${sign}${symbol}${absVal}`;
