@@ -784,7 +784,7 @@ export const apiService = {
       const cleanPhone = cleanPhoneForWhatsApp(settlementData.payee_phone);
       const waUrl = getWhatsAppUrl(settlementData.payee_phone, msg);
 
-      notification = {
+      const notifItem: SMSNotification = {
         id: uid('sms'),
         recipient_name: settlementData.payee_name,
         phone_number: settlementData.payee_phone,
@@ -793,7 +793,8 @@ export const apiService = {
         status: 'delivered',
         whatsapp_url: waUrl
       };
-      notificationsState = [notification, ...notificationsState];
+      notification = notifItem;
+      notificationsState = [notifItem, ...notificationsState];
       saveStored(STORAGE_KEYS.NOTIFICATIONS, notificationsState);
 
       // Invoke Supabase send-whatsapp Edge Function if configured
