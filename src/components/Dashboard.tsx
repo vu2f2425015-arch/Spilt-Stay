@@ -9,6 +9,7 @@ interface DashboardProps {
   onOpenJoinGroup?: () => void;
   onOpenAddExpense: () => void;
   onDeleteGroup: (groupId: string) => void;
+  onLeaveGroup?: (groupId: string) => void;
   currencySetting?: string;
 }
 
@@ -19,6 +20,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onOpenJoinGroup,
   onOpenAddExpense,
   onDeleteGroup,
+  onLeaveGroup,
   currencySetting
 }) => {
   const totalOwedToYou = groups
@@ -140,13 +142,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
+                    {onLeaveGroup && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const confirmLeave = window.confirm(`Are you sure you want to leave '${group.name}'? You can re-join later using the join code '${group.join_code}'.`);
+                          if (confirmLeave) onLeaveGroup(group.id);
+                        }}
+                        className="p-1.5 text-on-surface-variant hover:text-amber-400 hover:bg-amber-500/20 rounded-lg transition-colors z-10"
+                        title="Leave Group (removes you from this group)"
+                      >
+                        <span className="material-symbols-outlined text-sm">logout</span>
+                      </button>
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onDeleteGroup(group.id);
                       }}
                       className="p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-lg transition-colors z-10"
-                      title="Delete Group"
+                      title="Delete Group for everyone"
                     >
                       <span className="material-symbols-outlined text-sm">delete</span>
                     </button>
