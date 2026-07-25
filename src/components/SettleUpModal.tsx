@@ -7,6 +7,7 @@ interface SettleUpModalProps {
   selectedGroup: Group | null;
   onClose: () => void;
   currencySetting?: string;
+  currentUserId: string;
   onSettleUp: (settlement: {
     group_id: string;
     payer_id: string;
@@ -25,6 +26,7 @@ export const SettleUpModal: React.FC<SettleUpModalProps> = ({
   selectedGroup,
   onClose,
   currencySetting,
+  currentUserId,
   onSettleUp
 }) => {
   const currencySymbol = getCurrencySymbol(currencySetting);
@@ -36,7 +38,7 @@ export const SettleUpModal: React.FC<SettleUpModalProps> = ({
   const defaultDebtor = members.find(m => m.balance < 0) || members[1] || members[0];
   const defaultCreditor = members.find(m => m.balance > 0) || members[0];
 
-  const [payerId, setPayerId] = useState(defaultDebtor?.user_id || 'user_current');
+  const [payerId, setPayerId] = useState(defaultDebtor?.user_id || currentUserId);
   const [payeeId, setPayeeId] = useState(defaultCreditor?.user_id || '');
   
   // Calculate suggested amount in active currency
@@ -120,7 +122,7 @@ export const SettleUpModal: React.FC<SettleUpModalProps> = ({
                 setGroupId(e.target.value);
                 const g = groups.find(x => x.id === e.target.value);
                 const mems = g && Array.isArray(g.members) ? g.members : [];
-                const others = mems.filter(m => m.user_id !== 'user_current');
+                const others = mems.filter(m => m.user_id !== currentUserId);
                 if (others[0]) setPayeeId(others[0].user_id);
               }}
               className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg px-md py-2.5 text-on-surface focus:border-primary focus:outline-none"
