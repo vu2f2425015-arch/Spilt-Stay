@@ -207,9 +207,9 @@ export function App() {
   }, [selectedGroup]);
 
   // Toast Helper
-  const showToast = (message: string) => {
-    setActiveToast(message);
-    setTimeout(() => setActiveToast(null), 6000);
+  const showToast = (message: string, whatsappUrl?: string) => {
+    setActiveToast({ message, whatsappUrl });
+    setTimeout(() => setActiveToast(null), 8000);
   };
 
   const handleSaveProfile = (updated: Partial<UserProfile>) => {
@@ -237,7 +237,8 @@ export function App() {
 
     if (notificationsSent && notificationsSent.length > 0) {
       const names = notificationsSent.map(n => `${n.recipient_name} (${n.phone_number})`).join(', ');
-      showToast(`📱 SMS Notification sent to: ${names}`);
+      const waUrl = notificationsSent[0]?.whatsapp_url;
+      showToast(`📱 SMS/WhatsApp Alert created for: ${names}`, waUrl);
     } else {
       showToast(`Expense '${expenseData.title}' added successfully!`);
     }
@@ -256,7 +257,8 @@ export function App() {
     }
 
     if (notification) {
-      showToast(`📱 SMS Payment alert sent to ${notification.recipient_name} (${notification.phone_number})`);
+      const waUrl = notification.whatsapp_url;
+      showToast(`📱 Payment alert created for ${notification.recipient_name} (${notification.phone_number})`, waUrl);
     } else {
       showToast(`Payment of $${settlementData.amount.toFixed(2)} recorded!`);
     }
@@ -302,7 +304,20 @@ export function App() {
       {activeToast && (
         <div className="fixed bottom-6 right-6 z-50 bg-surface-container-highest border border-primary/50 text-on-surface px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5">
           <span className="material-symbols-outlined text-primary text-xl">notifications_active</span>
-          <span className="text-sm font-semibold">{activeToast}</span>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <span className="text-sm font-semibold">{activeToast.message}</span>
+            {activeToast.whatsappUrl && (
+              <a
+                href={activeToast.whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 shadow active:scale-95 transition-all"
+              >
+                <span className="material-symbols-outlined text-sm">chat</span>
+                Send on WhatsApp
+              </a>
+            )}
+          </div>
           <button
             onClick={() => setActiveToast(null)}
             className="text-on-surface-variant hover:text-on-surface ml-2"
