@@ -4,8 +4,13 @@
 
 @layer base {
   body {
-    @apply bg-background text-on-background font-sans antialiased;
-    background-color: #091421;
+    @apply bg-[#0B0F19] text-[#F1F5F9] font-sans antialiased;
+    background-color: #0B0F19;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.06) 0px, transparent 50%),
+      radial-gradient(at 50% 100%, rgba(139, 92, 246, 0.05) 0px, transparent 50%);
+    background-attachment: fixed;
   }
 }
 
@@ -13,18 +18,62 @@
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
-.card-glow {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+/* Glassmorphism containers */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.card-glow:hover {
-  background-color: #16202e;
-  border-color: #464554;
+.glass-card {
+  background: rgba(30, 41, 59, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Overlapping avatar logic */
+.glass-card:hover {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(99, 102, 241, 0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px -10px rgba(99, 102, 241, 0.15);
+}
+
+/* Gradient Text Utilities */
+.gradient-text-indigo {
+  background: linear-gradient(135deg, #818CF8 0%, #C084FC 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gradient-text-emerald {
+  background: linear-gradient(135deg, #34D399 0%, #10B981 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Primary Button Glow */
+.btn-gradient-primary {
+  background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+  box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.35);
+  transition: all 0.2s ease;
+}
+
+.btn-gradient-primary:hover {
+  background: linear-gradient(135deg, #4F46E5 0%, #4338CA 100%);
+  box-shadow: 0 6px 20px 0 rgba(99, 102, 241, 0.5);
+  transform: translateY(-1px);
+}
+
+.btn-gradient-primary:active {
+  transform: scale(0.97);
+}
+
+/* Overlapping avatar stack */
 .avatar-group > *:not(:first-child) {
-  margin-left: -12px;
+  margin-left: -10px;
 }
 
 /* Custom scrollbars */
@@ -34,14 +83,14 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #091421;
+  background: #0B0F19;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2b3544;
+  background: #334155;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #464554;
+  background: #6366F1;
 }
