@@ -104,12 +104,13 @@ export const apiService = {
                   balance: Number(m.balance || 0)
                 }));
 
+              const fallbackCode = `STAY-${(rg.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase()}`;
               const myMem = members.find(m => m.email.toLowerCase() === profile.email.toLowerCase());
               return {
                 id: rg.id,
                 name: rg.name,
                 description: rg.description || '',
-                join_code: rg.join_code || undefined,
+                join_code: rg.join_code || fallbackCode,
                 created_at: rg.created_at ? rg.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
                 last_activity: rg.last_activity || 'Recent',
                 user_balance: myMem ? myMem.balance : 0,
@@ -120,7 +121,10 @@ export const apiService = {
             // Safely merge remote groups with local groups
             const remoteIds = new Set(assembled.map(g => g.id));
             const extraLocal = localGroups.filter(g => !remoteIds.has(g.id));
-            groupsState = [...assembled, ...extraLocal];
+            groupsState = [...assembled, ...extraLocal].map(g => ({
+              ...g,
+              join_code: g.join_code || `STAY-${(g.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase()}`
+            }));
             saveStored(STORAGE_KEYS.GROUPS, groupsState);
             return groupsState.map(sanitizeGroup);
           }
@@ -130,7 +134,10 @@ export const apiService = {
       }
     }
 
-    groupsState = localGroups.length > 0 ? localGroups : groupsState;
+    groupsState = (localGroups.length > 0 ? localGroups : groupsState).map(g => ({
+      ...g,
+      join_code: g.join_code || `STAY-${(g.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase()}`
+    }));
     return groupsState.map(sanitizeGroup);
   },
 
@@ -221,17 +228,36 @@ export const apiService = {
   },
 
   async joinGroupWithCode(joinCode: string): Promise<Group | null> {
-    const cleanCode = joinCode.trim().toUpperCase();
+    const rawInput = joinCode.trim().toUpperCase();
+    if (!rawInput) return null;
+
     const profile = getStored<UserProfile>(STORAGE_KEYS.PROFILE, DEFAULT_PROFILE);
+
+    // Build variant search strings to match STAY-TEST, TEST, STAYTEST, etc.
+    const cleanAlphaNum = rawInput.replace(/[^A-Z0-9]/g, '');
+    const withoutPrefix = rawInput.replace(/^STAY-?/, '');
+    const withPrefix = rawInput.startsWith('STAY-') ? rawInput : `STAY-${withoutPrefix}`;
+
+    const variants = Array.from(new Set([
+      rawInput,
+      withPrefix,
+      withoutPrefix,
+      cleanAlphaNum
+    ])).filter(v => v.length > 0);
 
     let targetGroup: Group | null = null;
 
     if (supabase) {
       try {
+        const orClauses = variants.flatMap(v => [
+          `join_code.ilike.${v}`,
+          `id.ilike.%${v}%`
+        ]).join(',');
+
         const { data: remoteGroups } = await supabase
           .from('groups')
           .select('*')
-          .ilike('join_code', cleanCode);
+          .or(orClauses);
 
         if (remoteGroups && remoteGroups.length > 0) {
           const rg = remoteGroups[0];
@@ -284,11 +310,17 @@ export const apiService = {
             members.push(newMem);
           }
 
+          const matchedCode = rg.join_code || withPrefix;
+
+          if (!rg.join_code) {
+            await supabase.from('groups').update({ join_code: matchedCode }).eq('id', rg.id);
+          }
+
           targetGroup = {
             id: rg.id,
             name: rg.name,
             description: rg.description || '',
-            join_code: rg.join_code || cleanCode,
+            join_code: matchedCode,
             created_at: rg.created_at ? rg.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
             last_activity: 'Joined via code',
             user_balance: 0.00,
@@ -301,17 +333,36 @@ export const apiService = {
     }
 
     if (!targetGroup) {
-      const localGroups = getStored<Group[]>(STORAGE_KEYS.GROUPS, []);
-      const found = localGroups.find(g => g.join_code && g.join_code.toUpperCase() === cleanCode);
+      const localGroups = getStored<Group[]>(STORAGE_KEYS.GROUPS, groupsState);
+      const found = localGroups.find(g => {
+        const gCode = (g.join_code || `STAY-${(g.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase()}`).toUpperCase();
+        const gCodeAlphaNum = gCode.replace(/[^A-Z0-9]/g, '');
+        const gIdUpper = g.id.toUpperCase();
+
+        return variants.some(v => 
+          gCode === v || 
+          gCode.includes(v) ||
+          gCodeAlphaNum === v ||
+          gCodeAlphaNum.includes(v) ||
+          gIdUpper.includes(v)
+        );
+      });
+
       if (found) {
-        targetGroup = found;
-        const alreadyMem = targetGroup.members.some(m => m.email.toLowerCase() === profile.email.toLowerCase());
+        targetGroup = { ...found };
+        if (!targetGroup.join_code) {
+          targetGroup.join_code = `STAY-${(targetGroup.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase()}`;
+        }
+        const alreadyMem = targetGroup.members.some(m => 
+          (m.email && profile.email && m.email.toLowerCase() === profile.email.toLowerCase()) ||
+          (m.user_id && profile.id && m.user_id === profile.id)
+        );
         if (!alreadyMem) {
           targetGroup.members.push({
             id: `mem-${Date.now()}`,
             user_id: profile.id || `user-${Date.now()}`,
             full_name: profile.full_name || 'Roommate',
-            email: profile.email || 'user@example.com',
+            email: profile.email ? profile.email.trim().toLowerCase() : 'user@example.com',
             phone_number: profile.phone_number,
             avatar_url: profile.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
             role: 'member',
