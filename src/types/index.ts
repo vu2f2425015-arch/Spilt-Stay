@@ -8,6 +8,7 @@ export interface UserProfile {
   cash_app_handle?: string;
   bio?: string;
   currency?: string;
+  is_onboarded?: boolean;
 }
 
 export interface GroupMember {
