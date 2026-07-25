@@ -13,6 +13,7 @@ interface GroupDetailProps {
   onDeleteGroup: (groupId: string) => void;
   onAddMember?: (groupId: string, name: string, email: string, phone: string) => void;
   currencySetting?: string;
+  currentUserId: string;
 }
 
 export const GroupDetail: React.FC<GroupDetailProps> = ({
@@ -25,7 +26,8 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({
   onOpenSettleUp,
   onDeleteGroup,
   onAddMember,
-  currencySetting
+  currencySetting,
+  currentUserId
 }) => {
   const [activeTab, setActiveTab] = useState<'activity' | 'balances' | 'recurring'>('activity');
   const [smsLogNotice, setSmsLogNotice] = useState<string | null>(null);
@@ -209,8 +211,8 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({
           ) : (
             safeExpenses.map((expense) => {
               const splits = Array.isArray(expense.splits) ? expense.splits : [];
-              const userSplit = splits.find(s => s.user_id === 'user_current');
-              const isPayer = expense.paid_by === 'user_current';
+              const userSplit = splits.find(s => s.user_id === currentUserId);
+              const isPayer = expense.paid_by === currentUserId;
 
               return (
                 <div
