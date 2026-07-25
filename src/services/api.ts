@@ -797,7 +797,6 @@ export const apiService = {
     payee_phone?: string;
     amount: number;
     payment_method: Settlement['payment_method'];
-    razorpay_payment_id?: string;
     sendSMS?: boolean;
   }): Promise<{ settlement: Settlement; notification?: SMSNotification }> {
     const newSettlement: Settlement = {
@@ -809,7 +808,6 @@ export const apiService = {
       payee_name: settlementData.payee_name,
       amount: settlementData.amount,
       payment_method: settlementData.payment_method,
-      razorpay_payment_id: settlementData.razorpay_payment_id,
       settled_at: new Date().toISOString()
     };
 
@@ -1018,7 +1016,6 @@ export const apiService = {
             avatar_url: remoteProfile.avatar_url || localProfile.avatar_url,
             venmo_handle: remoteProfile.venmo_handle || localProfile.venmo_handle,
             cash_app_handle: remoteProfile.cash_app_handle || localProfile.cash_app_handle,
-            razorpay_handle: remoteProfile.razorpay_handle || localProfile.razorpay_handle,
             bio: remoteProfile.bio || localProfile.bio,
             currency: remoteProfile.currency || localProfile.currency || 'USD ($)',
             is_onboarded: true
