@@ -1,6 +1,5 @@
 import React from 'react';
 import { apiService } from '../services/api';
-import { openWhatsAppMessage } from '../utils/whatsapp';
 
 interface NotificationsModalProps {
   onClose: () => void;
@@ -19,7 +18,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose 
               <span className="material-symbols-outlined">notifications</span>
             </div>
             <div>
-              <h2 className="text-lg font-bold text-on-surface">Notifications & WhatsApp Alerts</h2>
+              <h2 className="text-lg font-bold text-on-surface">Notifications & SMS/WhatsApp Alerts</h2>
               <p className="text-xs text-on-surface-variant">Live record of automated roomie alerts</p>
             </div>
           </div>
@@ -40,14 +39,14 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose 
               </div>
               <p className="text-sm font-semibold text-on-surface">No notifications yet</p>
               <p className="text-xs text-on-surface-variant max-w-xs mx-auto">
-                When you add an expense or settle debt with alerts enabled, your sent logs will appear here.
+                When you add an expense or settle debt with alerts toggled on, your sent logs will appear here.
               </p>
             </div>
           ) : (
             notifications.map((notif) => (
               <div
                 key={notif.id}
-                className="bg-surface-container-low border border-outline-variant/50 p-md rounded-xl space-y-2 hover:border-primary/50 transition-colors"
+                className="bg-surface-container-low border border-outline-variant/50 p-md rounded-xl space-y-1.5 hover:border-primary/50 transition-colors"
               >
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-bold text-primary flex items-center gap-1">
@@ -59,14 +58,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose 
                 <p className="text-xs text-on-surface leading-relaxed bg-surface-container/60 p-2.5 rounded-lg border border-outline-variant/30 font-mono">
                   {notif.message}
                 </p>
-                <div className="flex justify-between items-center pt-1">
-                  <button
-                    onClick={() => openWhatsAppMessage(notif.phone_number, notif.message)}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow transition-all active:scale-95"
-                  >
-                    <span className="material-symbols-outlined text-sm">chat</span>
-                    <span>Send via WhatsApp</span>
-                  </button>
+                <div className="flex justify-end">
                   <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">
                     ✓ {notif.status}
                   </span>
