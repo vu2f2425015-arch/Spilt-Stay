@@ -212,15 +212,11 @@ export function App() {
     }
   };
 
-  const handleCreateGroup = async (
-    name: string,
-    description: string,
-    rawMembers: { name: string; phone?: string; email?: string }[]
-  ) => {
-    const newGroup = await apiService.createGroup(name, description, rawMembers);
+  const handleCreateGroup = async (name: string, description: string) => {
+    const newGroup = await apiService.createGroup(name, description);
     await loadGroups();
     setSelectedGroup(newGroup);
-    showToast(`Group '${name}' created with ${newGroup.members.length} members!`);
+    showToast(`Group '${name}' created! Share the join code so roomies can hop in.`);
   };
 
   const handleAddMember = async (groupId: string, name: string, email: string, phone: string) => {
@@ -355,7 +351,6 @@ export function App() {
         <NewGroupModal
           onClose={() => setIsNewGroupOpen(false)}
           onCreateGroup={handleCreateGroup}
-          userName={userProfile?.full_name}
         />
       )}
 
