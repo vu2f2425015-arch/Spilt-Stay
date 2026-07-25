@@ -86,4 +86,5 @@ export interface SMSNotification {
   message: string;
   sent_at: string;
   status: 'sent' | 'delivered';
+  whatsapp_url?: string;
 }
