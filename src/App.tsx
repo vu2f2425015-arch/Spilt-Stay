@@ -14,6 +14,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { ProfileModal } from './components/ProfileModal';
 import { JoinGroupModal } from './components/JoinGroupModal';
 import { AuthScreen } from './components/AuthScreen';
+import Galaxy from './components/Galaxy';
 import { UserProfile } from './types';
 
 const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '';
@@ -319,6 +320,24 @@ export function App() {
 
   const appBody = (
     <div className="min-h-screen bg-background text-on-background flex flex-col font-sans relative">
+      {/* Interactive Galaxy Background */}
+      <div className="fixed inset-0 z-0 opacity-40 pointer-events-none overflow-hidden">
+        <Galaxy 
+          mouseRepulsion
+          mouseInteraction
+          density={1}
+          glowIntensity={0.3}
+          saturation={0}
+          hueShift={140}
+          twinkleIntensity={0.3}
+          rotationSpeed={0.1}
+          repulsionStrength={2}
+          autoCenterRepulsion={0}
+          starSpeed={0.5}
+          speed={1}
+        />
+      </div>
+
       {/* Toast Notification Popup */}
       {activeToast && (
         <div className="fixed bottom-6 right-6 z-50 bg-surface-container-highest border border-primary/50 text-on-surface px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5">
