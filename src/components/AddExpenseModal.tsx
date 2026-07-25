@@ -88,36 +88,36 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-surface-container border border-outline-variant rounded-xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-150 max-h-[90vh] flex flex-col">
-        {/* Modal Header */}
-        <div className="px-lg py-md border-b border-outline-variant/40 flex justify-between items-center bg-surface-container-low shrink-0">
-          <div className="flex items-center gap-md">
-            <div className="w-9 h-9 rounded-lg bg-primary-container/20 text-primary flex items-center justify-center">
-              <span className="material-symbols-outlined">add_shopping_cart</span>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto">
+      <div className="glass-panel border border-slate-700/80 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-fade-in-up max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/90 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
+              <span className="material-symbols-outlined text-xl">add_shopping_cart</span>
             </div>
             <div>
-              <h2 className="text-lg font-bold text-on-surface">Add Expense</h2>
-              <p className="text-xs text-on-surface-variant">Split bill fairly & send SMS alerts</p>
+              <h2 className="text-lg font-bold text-slate-100">Add Shared Expense</h2>
+              <p className="text-xs text-slate-400">Split bills fairly & notify roommates</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-container-high transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-100 rounded-full hover:bg-slate-800 transition-colors"
           >
-            <span className="material-symbols-outlined">close</span>
+            <span className="material-symbols-outlined text-lg">close</span>
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-lg space-y-lg overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           {/* Select Group */}
-          <div className="space-y-xs">
-            <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Group</label>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Group Workspace</label>
             <select
               value={groupId}
               onChange={(e) => setGroupId(e.target.value)}
-              className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg px-md py-2.5 text-on-surface focus:border-primary focus:outline-none"
+              className="w-full bg-slate-900/90 border border-slate-700/70 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all"
             >
               {groups.map(g => (
                 <option key={g.id} value={g.id}>{g.name}</option>
@@ -126,22 +126,22 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
           </div>
 
           {/* Title */}
-          <div className="space-y-xs">
-            <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Description</label>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Expense Description</label>
             <input
               type="text"
-              placeholder="e.g. Groceries, Utility Bill, Dinner"
+              placeholder="e.g. Weekly Groceries, Electricity Bill, Dinner"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
-              className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg px-md py-2.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none"
+              className="w-full bg-slate-900/90 border border-slate-700/70 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all"
             />
           </div>
 
           {/* Amount & Category */}
-          <div className="grid grid-cols-2 gap-md">
-            <div className="space-y-xs">
-              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Amount ({currencySymbol})</label>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Amount ({currencySymbol})</label>
               <input
                 type="number"
                 step="0.01"
@@ -149,15 +149,15 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required
-                className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg px-md py-2.5 text-on-surface font-bold text-lg focus:border-primary focus:outline-none"
+                className="w-full bg-slate-900/90 border border-slate-700/70 rounded-xl px-4 py-2.5 text-slate-100 font-extrabold text-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all"
               />
             </div>
-            <div className="space-y-xs">
-              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Category</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Category</label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as Expense['category'])}
-                className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg px-md py-2.5 text-on-surface focus:border-primary focus:outline-none"
+                className="w-full bg-slate-900/90 border border-slate-700/70 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all"
               >
                 <option value="groceries">Groceries</option>
                 <option value="rent">Rent</option>
@@ -170,12 +170,12 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
           </div>
 
           {/* Paid By */}
-          <div className="space-y-xs">
-            <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Paid By</label>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Paid By</label>
             <select
               value={paidBy}
               onChange={(e) => setPaidBy(e.target.value)}
-              className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg px-md py-2.5 text-on-surface focus:border-primary focus:outline-none"
+              className="w-full bg-slate-900/90 border border-slate-700/70 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all"
             >
               {members.map(m => (
                 <option key={m.user_id} value={m.user_id}>
@@ -185,45 +185,45 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
             </select>
           </div>
 
-          {/* SMS Notification Toggle */}
-          <div className="bg-surface-container-low p-md rounded-lg border border-outline-variant/40 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">chat</span>
+          {/* SMS Toggle */}
+          <div className="bg-slate-900/90 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="material-symbols-outlined text-indigo-400">chat</span>
               <div>
-                <p className="text-xs font-bold text-on-surface">Send SMS & WhatsApp Alerts</p>
-                <p className="text-[11px] text-on-surface-variant">Notify roomies via SMS or instant WhatsApp alert</p>
+                <p className="text-xs font-bold text-slate-200">Send Instant SMS Alerts</p>
+                <p className="text-[11px] text-slate-400">Notify roomies via SMS and WhatsApp</p>
               </div>
             </div>
             <input
               type="checkbox"
               checked={sendSMS}
               onChange={(e) => setSendSMS(e.target.checked)}
-              className="w-4 h-4 accent-primary rounded cursor-pointer"
+              className="w-4 h-4 accent-indigo-500 rounded cursor-pointer"
             />
           </div>
 
           {/* Split Preview */}
           {amount && parseFloat(amount) > 0 && members.length > 0 && (
-            <div className="bg-surface-container-low p-md rounded-lg border border-outline-variant/40 text-xs space-y-1">
-              <span className="font-semibold text-primary">Split Breakdown ({members.length} members):</span>
-              <p className="text-on-surface-variant">
-                {currencySymbol}{(parseFloat(amount) / members.length).toFixed(2)} per person.
+            <div className="bg-indigo-500/10 p-4 rounded-xl border border-indigo-500/30 text-xs space-y-1">
+              <span className="font-bold text-indigo-300">Split Preview ({members.length} roommates):</span>
+              <p className="text-slate-300">
+                {formatCurrency(parseFloat(amount) / members.length, currencySetting)} per person.
               </p>
             </div>
           )}
 
-          {/* Buttons */}
-          <div className="flex justify-end gap-md pt-md border-t border-outline-variant/40">
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-lg py-md text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-xl transition-colors"
+              className="px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-200"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="bg-primary-container text-on-primary-container px-xl py-md text-sm font-semibold rounded-xl shadow-lg shadow-primary-container/20 active:scale-95 transition-all"
+              className="btn-gradient-primary text-white px-6 py-2.5 text-xs font-bold rounded-xl shadow-lg"
             >
               Save & Notify
             </button>
