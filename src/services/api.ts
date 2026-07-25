@@ -898,19 +898,97 @@ export const apiService = {
     return profileState;
   },
 
+  async syncUserProfile(clerkUser: {
+    id: string;
+    name: string;
+    email: string;
+    avatar: string;
+    phone?: string;
+  }): Promise<UserProfile> {
+    let localProfile = getStored<UserProfile>(STORAGE_KEYS.PROFILE, DEFAULT_PROFILE);
+
+    if (localProfile.id !== clerkUser.id) {
+      localProfile = {
+        id: clerkUser.id,
+        full_name: clerkUser.name || 'SplitStay User',
+        email: clerkUser.email || '',
+        avatar_url: clerkUser.avatar || DEFAULT_AVATAR,
+        phone_number: clerkUser.phone || '',
+        currency: 'USD ($)',
+        is_onboarded: false
+      };
+    } else {
+      if (clerkUser.name && (!localProfile.full_name || localProfile.full_name === 'Alex Morgan')) {
+        localProfile.full_name = clerkUser.name;
+      }
+      if (clerkUser.email && (!localProfile.email || localProfile.email === 'alex@example.com')) {
+        localProfile.email = clerkUser.email;
+      }
+      if (clerkUser.avatar) {
+        localProfile.avatar_url = clerkUser.avatar;
+      }
+      if (clerkUser.phone) {
+        localProfile.phone_number = clerkUser.phone;
+      }
+    }
+
+    if (supabase && clerkUser.id) {
+      try {
+        const { data: remoteProfile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', clerkUser.id)
+          .maybeSingle();
+
+        if (!error && remoteProfile) {
+          localProfile = {
+            ...localProfile,
+            full_name: remoteProfile.full_name || localProfile.full_name,
+            email: remoteProfile.email || localProfile.email,
+            phone_number: remoteProfile.phone_number || localProfile.phone_number,
+            avatar_url: remoteProfile.avatar_url || localProfile.avatar_url,
+            venmo_handle: remoteProfile.venmo_handle || localProfile.venmo_handle,
+            cash_app_handle: remoteProfile.cash_app_handle || localProfile.cash_app_handle,
+            bio: remoteProfile.bio || localProfile.bio,
+            currency: remoteProfile.currency || localProfile.currency || 'USD ($)',
+            is_onboarded: true
+          };
+        }
+      } catch (err) {
+        console.warn('Supabase remote profile fetch warning:', err);
+      }
+    }
+
+    if (localProfile.phone_number && localProfile.phone_number.trim().length > 0) {
+      localProfile.is_onboarded = true;
+    }
+
+    profileState = localProfile;
+    saveStored(STORAGE_KEYS.PROFILE, profileState);
+    return profileState;
+  },
+
   updateUserProfile(updated: Partial<UserProfile>): UserProfile {
     if (updated.email && profileState.email && updated.email.toLowerCase() !== profileState.email.toLowerCase()) {
       groupsState = [];
     }
 
-    profileState = { ...profileState, ...updated };
+    const merged: UserProfile = {
+      ...profileState,
+      ...updated,
+      phone_number: (updated.phone_number !== undefined && updated.phone_number !== '')
+        ? updated.phone_number
+        : (profileState.phone_number || '')
+    };
+
+    profileState = merged;
     saveStored(STORAGE_KEYS.PROFILE, profileState);
 
     // Sync current user's name & avatar across all groups & members
     groupsState = groupsState.map(g => ({
       ...g,
       members: g.members.map(m => {
-        if (m.user_id === profileState.id || m.email.toLowerCase() === profileState.email.toLowerCase()) {
+        if (m.user_id === profileState.id || (m.email && profileState.email && m.email.toLowerCase() === profileState.email.toLowerCase())) {
           return {
             ...m,
             full_name: profileState.full_name,
