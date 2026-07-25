@@ -108,15 +108,16 @@ export function App() {
         const clerkAvatar = user.imageUrl || '';
         const clerkPhone = user.primaryPhoneNumber?.phoneNumber || '';
 
-        const updatedProfile = apiService.updateUserProfile({
+        apiService.syncUserProfile({
           id: user.id,
-          full_name: clerkName,
+          name: clerkName,
           email: clerkEmail,
-          avatar_url: clerkAvatar,
-          phone_number: clerkPhone,
+          avatar: clerkAvatar,
+          phone: clerkPhone,
+        }).then((syncedProfile) => {
+          setUserProfile(syncedProfile);
+          loadGroups();
         });
-        setUserProfile(updatedProfile);
-        loadGroups();
       } else {
         setGroups([]);
         setSelectedGroup(null);
@@ -212,7 +213,10 @@ export function App() {
   };
 
   const handleSaveProfile = (updated: Partial<UserProfile>) => {
-    const updatedProfile = apiService.updateUserProfile(updated);
+    const updatedProfile = apiService.updateUserProfile({
+      ...updated,
+      is_onboarded: true
+    });
     setUserProfile(updatedProfile);
     loadGroups();
     showToast('Profile saved & synced across groups!');
@@ -442,12 +446,9 @@ export function App() {
     </div>
   );
 
-  // Gate the app behind a required profile step whenever a signed-in
-  // user is missing a phone number. Google/social sign-in via Clerk
-  // reliably gives us name/email/avatar, but not a phone number - and
-  // SMS/WhatsApp alerts need one, so we collect it once here instead of
-  // silently sending nothing later.
-  const needsOnboarding = isClerkConfigured && isLoaded && isSignedIn && !userProfile.phone_number;
+  // Only prompt first-time new users for initial profile setup. Returning users
+  // and users who have already saved their profile or provided details won't be prompted again.
+  const needsOnboarding = isClerkConfigured && isLoaded && isSignedIn && !userProfile.is_onboarded && !userProfile.phone_number;
 
   return (
     <ErrorBoundary>
