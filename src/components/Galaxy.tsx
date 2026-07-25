@@ -1,3 +1,4 @@
+// @ts-ignore
 import { Renderer, Program, Mesh, Color, Triangle } from 'ogl';
 import React, { useEffect, useRef } from 'react';
 
@@ -301,8 +302,8 @@ export default function Galaxy({
 
       renderer.render({ scene: mesh });
     }
-    animateId = requestAnimationFrame(update);
-    ctn.appendChild(gl.canvas);
+    const canvasElement = gl.canvas as HTMLCanvasElement;
+    ctn.appendChild(canvasElement);
 
     function handleMouseMove(e: MouseEvent) {
       if (!ctn) return;
@@ -329,8 +330,8 @@ export default function Galaxy({
         ctn.removeEventListener('mousemove', handleMouseMove);
         ctn.removeEventListener('mouseleave', handleMouseLeave);
       }
-      if (gl.canvas && ctn.contains(gl.canvas)) {
-        ctn.removeChild(gl.canvas);
+      if (canvasElement && ctn.contains(canvasElement)) {
+        ctn.removeChild(canvasElement);
       }
       gl.getExtension('WEBGL_lose_context')?.loseContext();
     };
@@ -355,4 +356,3 @@ export default function Galaxy({
 
   return <div ref={ctnDom} className={`w-full h-full relative ${className}`} style={style} {...rest} />;
 }
-
