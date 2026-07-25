@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Group, Expense } from '../types';
-import { getCurrencySymbol, formatCurrency, parseInputAmountToUSD } from '../utils/currency';
+import { getCurrencySymbol, formatCurrency } from '../utils/currency';
 
 interface AddExpenseModalProps {
   groups: Group[];
@@ -51,19 +51,25 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
     e.preventDefault();
     if (!title || !amount || parseFloat(amount) <= 0 || !currentGroup) return;
 
-    const userEnteredAmount = parseFloat(amount);
-    // Convert entered amount in active currency back to base USD for stored database state
-    const numAmountInUSD = parseInputAmountToUSD(userEnteredAmount, currencySetting);
-
+    const userEnteredAmount = Number(parseFloat(amount).toFixed(2));
     const memberCount = Math.max(members.length, 1);
-    const equalSplit = numAmountInUSD / memberCount;
 
-    const splits = members.map(m => ({
-      user_id: m.user_id,
-      full_name: m.full_name,
-      phone_number: m.phone_number,
-      amount_owed: Math.round(equalSplit * 100) / 100
-    }));
+    const baseSplit = Math.floor((userEnteredAmount / memberCount) * 100) / 100;
+    let remainder = Number((userEnteredAmount - (baseSplit * memberCount)).toFixed(2));
+
+    const splits = members.map(m => {
+      let memberSplit = baseSplit;
+      if (remainder > 0.001) {
+        memberSplit = Number((memberSplit + 0.01).toFixed(2));
+        remainder = Number((remainder - 0.01).toFixed(2));
+      }
+      return {
+        user_id: m.user_id,
+        full_name: m.full_name,
+        phone_number: m.phone_number,
+        amount_owed: memberSplit
+      };
+    });
 
     const payerMember = members.find(m => m.user_id === paidBy);
 
@@ -72,7 +78,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
       paid_by: paidBy,
       paid_by_name: payerMember ? payerMember.full_name : 'You',
       title,
-      amount: numAmountInUSD,
+      amount: userEnteredAmount,
       category,
       splits,
       sendSMSNotification: sendSMS
@@ -182,10 +188,10 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
           {/* SMS Notification Toggle */}
           <div className="bg-surface-container-low p-md rounded-lg border border-outline-variant/40 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">sms</span>
+              <span className="material-symbols-outlined text-primary">chat</span>
               <div>
-                <p className="text-xs font-bold text-on-surface">Send Phone SMS Alerts</p>
-                <p className="text-[11px] text-on-surface-variant">Notify roomies via phone SMS when saved</p>
+                <p className="text-xs font-bold text-on-surface">Send SMS & WhatsApp Alerts</p>
+                <p className="text-[11px] text-on-surface-variant">Notify roomies via SMS or instant WhatsApp alert</p>
               </div>
             </div>
             <input
