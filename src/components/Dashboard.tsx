@@ -24,12 +24,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   currencySetting
 }) => {
   const totalOwedToYou = groups
-    .filter(g => g.user_balance > 0)
-    .reduce((sum, g) => sum + g.user_balance, 0);
+    .filter(g => (Number(g.user_balance) || 0) > 0)
+    .reduce((sum, g) => sum + (Number(g.user_balance) || 0), 0);
 
   const totalYouOwe = groups
-    .filter(g => g.user_balance < 0)
-    .reduce((sum, g) => sum + Math.abs(g.user_balance), 0);
+    .filter(g => (Number(g.user_balance) || 0) < 0)
+    .reduce((sum, g) => sum + Math.abs(Number(g.user_balance) || 0), 0);
 
   const netTotal = totalOwedToYou - totalYouOwe;
 
@@ -77,22 +77,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* High Level Balance Summary Banner (If groups exist) */}
       {groups.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-md bg-surface-container-low border border-outline-variant/50 rounded-xl p-lg">
-          <div className="space-y-1">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-md bg-surface-container-low border border-outline-variant/50 rounded-xl p-lg overflow-hidden">
+          <div className="space-y-1 min-w-0">
             <span className="text-xs uppercase tracking-wider font-semibold text-on-surface-variant">Total Net Balance</span>
-            <p className={`text-2xl font-bold ${netTotal >= 0 ? 'text-emerald-400' : 'text-error'}`}>
+            <p className={`text-xl md:text-2xl font-bold truncate ${netTotal >= 0 ? 'text-emerald-400' : 'text-error'}`}>
               {netTotal >= 0 ? `+${formatCurrency(netTotal, currencySetting)}` : formatCurrency(netTotal, currencySetting)}
             </p>
           </div>
-          <div className="space-y-1 border-t sm:border-t-0 sm:border-l border-outline-variant/30 pt-3 sm:pt-0 sm:pl-lg">
+          <div className="space-y-1 border-t sm:border-t-0 sm:border-l border-outline-variant/30 pt-3 sm:pt-0 sm:pl-lg min-w-0">
             <span className="text-xs uppercase tracking-wider font-semibold text-on-surface-variant">You are owed</span>
-            <p className="text-2xl font-bold text-emerald-400">
+            <p className="text-xl md:text-2xl font-bold text-emerald-400 truncate">
               +{formatCurrency(totalOwedToYou, currencySetting)}
             </p>
           </div>
-          <div className="space-y-1 border-t sm:border-t-0 sm:border-l border-outline-variant/30 pt-3 sm:pt-0 sm:pl-lg">
+          <div className="space-y-1 border-t sm:border-t-0 sm:border-l border-outline-variant/30 pt-3 sm:pt-0 sm:pl-lg min-w-0">
             <span className="text-xs uppercase tracking-wider font-semibold text-on-surface-variant">You owe</span>
-            <p className="text-2xl font-bold text-error">
+            <p className="text-xl md:text-2xl font-bold text-error truncate">
               -{formatCurrency(totalYouOwe, currencySetting)}
             </p>
           </div>
