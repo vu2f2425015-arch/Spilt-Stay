@@ -159,7 +159,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
             <div className="space-y-xs">
               <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
-                Phone Number (SMS Alerts) {required && '*'}
+                Phone Number (SMS Alerts)
               </label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-2.5 top-2.5 text-primary text-base">phone</span>
@@ -168,7 +168,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+1 (555) 000-0000"
-                  required={required}
                   className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg pl-8 pr-md py-2.5 text-on-surface focus:border-primary focus:outline-none"
                 />
               </div>
@@ -235,7 +234,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
           {/* Action Buttons */}
           <div className="flex justify-end gap-md pt-md border-t border-outline-variant/40">
-            {!required && (
+            {!required ? (
               <button
                 type="button"
                 onClick={onClose}
@@ -243,12 +242,33 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               >
                 Cancel
               </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  onSaveProfile({
+                    full_name: fullName.trim(),
+                    email: email.trim(),
+                    phone_number: phone.trim(),
+                    avatar_url: avatarUrl.trim(),
+                    venmo_handle: venmo.trim(),
+                    cash_app_handle: cashApp.trim(),
+                    bio: bio.trim(),
+                    currency,
+                    is_onboarded: true
+                  });
+                  onClose();
+                }}
+                className="px-lg py-md text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-xl transition-colors"
+              >
+                Skip for Now
+              </button>
             )}
             <button
               type="submit"
               className="bg-primary-container text-on-primary-container px-xl py-md text-sm font-semibold rounded-xl shadow-lg shadow-primary-container/20 active:scale-95 transition-all"
             >
-              {required ? 'Continue to Dashboard' : 'Save Changes'}
+              {required ? 'Save & Continue' : 'Save Changes'}
             </button>
           </div>
         </form>
