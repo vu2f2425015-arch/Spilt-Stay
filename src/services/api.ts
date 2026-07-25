@@ -249,83 +249,95 @@ export const apiService = {
 
     if (supabase) {
       try {
-        const orClauses = variants.flatMap(v => [
-          `join_code.ilike.${v}`,
-          `id.ilike.%${v}%`
-        ]).join(',');
-
-        const { data: remoteGroups } = await supabase
+        const { data: allRemote } = await supabase
           .from('groups')
-          .select('*')
-          .or(orClauses);
+          .select('*');
 
-        if (remoteGroups && remoteGroups.length > 0) {
-          const rg = remoteGroups[0];
-          
-          const { data: remoteMembers } = await supabase
-            .from('group_members')
-            .select('*')
-            .eq('group_id', rg.id);
+        if (allRemote && allRemote.length > 0) {
+          const matchedRemote = allRemote.find(rg => {
+            const rCode = (rg.join_code || `STAY-${(rg.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase()}`).toUpperCase();
+            const rCodeAlphaNum = rCode.replace(/[^A-Z0-9]/g, '');
+            const rIdUpper = (rg.id || '').toUpperCase();
+            const rNameUpper = (rg.name || '').toUpperCase();
 
-          const members: GroupMember[] = (remoteMembers || []).map(m => ({
-            id: m.id,
-            user_id: m.user_id || m.id,
-            full_name: m.full_name,
-            email: m.email,
-            phone_number: m.phone_number,
-            avatar_url: m.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-            role: (m.role as 'owner' | 'admin' | 'member') || 'member',
-            balance: Number(m.balance || 0)
-          }));
+            return variants.some(v => 
+              rCode === v ||
+              rCode.includes(v) ||
+              rCodeAlphaNum === v ||
+              rCodeAlphaNum.includes(v) ||
+              v.includes(rCodeAlphaNum) ||
+              rIdUpper.includes(v) ||
+              rNameUpper === v
+            );
+          });
 
-          const alreadyMember = members.some(m => 
-            (m.email && profile.email && m.email.toLowerCase() === profile.email.toLowerCase()) || 
-            (m.user_id && profile.id && m.user_id === profile.id)
-          );
+          if (matchedRemote) {
+            const rg = matchedRemote;
+            const { data: remoteMembers } = await supabase
+              .from('group_members')
+              .select('*')
+              .eq('group_id', rg.id);
 
-          if (!alreadyMember) {
-            const newMem: GroupMember = {
-              id: `mem-${Date.now()}`,
-              user_id: profile.id || `user-${Date.now()}`,
-              full_name: profile.full_name || 'Roommate',
-              email: profile.email ? profile.email.trim().toLowerCase() : 'user@example.com',
-              phone_number: profile.phone_number,
-              avatar_url: profile.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-              role: 'member',
-              balance: 0.00
+            const members: GroupMember[] = (remoteMembers || []).map(m => ({
+              id: m.id,
+              user_id: m.user_id || m.id,
+              full_name: m.full_name,
+              email: m.email,
+              phone_number: m.phone_number,
+              avatar_url: m.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+              role: (m.role as 'owner' | 'admin' | 'member') || 'member',
+              balance: Number(m.balance || 0)
+            }));
+
+            const alreadyMember = members.some(m => 
+              (m.email && profile.email && m.email.toLowerCase() === profile.email.toLowerCase()) || 
+              (m.user_id && profile.id && m.user_id === profile.id)
+            );
+
+            if (!alreadyMember) {
+              const newMem: GroupMember = {
+                id: `mem-${Date.now()}`,
+                user_id: profile.id || `user-${Date.now()}`,
+                full_name: profile.full_name || 'Roommate',
+                email: profile.email ? profile.email.trim().toLowerCase() : 'user@example.com',
+                phone_number: profile.phone_number,
+                avatar_url: profile.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+                role: 'member',
+                balance: 0.00
+              };
+
+              await supabase.from('group_members').insert([{
+                id: newMem.id,
+                group_id: rg.id,
+                user_id: newMem.user_id,
+                email: newMem.email,
+                full_name: newMem.full_name,
+                phone_number: newMem.phone_number,
+                avatar_url: newMem.avatar_url,
+                role: newMem.role,
+                balance: 0.00
+              }]);
+
+              members.push(newMem);
+            }
+
+            const matchedCode = rg.join_code || withPrefix;
+
+            if (!rg.join_code) {
+              await supabase.from('groups').update({ join_code: matchedCode }).eq('id', rg.id);
+            }
+
+            targetGroup = {
+              id: rg.id,
+              name: rg.name,
+              description: rg.description || '',
+              join_code: matchedCode,
+              created_at: rg.created_at ? rg.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+              last_activity: 'Joined via code',
+              user_balance: 0.00,
+              members
             };
-
-            await supabase.from('group_members').insert([{
-              id: newMem.id,
-              group_id: rg.id,
-              user_id: newMem.user_id,
-              email: newMem.email,
-              full_name: newMem.full_name,
-              phone_number: newMem.phone_number,
-              avatar_url: newMem.avatar_url,
-              role: newMem.role,
-              balance: 0.00
-            }]);
-
-            members.push(newMem);
           }
-
-          const matchedCode = rg.join_code || withPrefix;
-
-          if (!rg.join_code) {
-            await supabase.from('groups').update({ join_code: matchedCode }).eq('id', rg.id);
-          }
-
-          targetGroup = {
-            id: rg.id,
-            name: rg.name,
-            description: rg.description || '',
-            join_code: matchedCode,
-            created_at: rg.created_at ? rg.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
-            last_activity: 'Joined via code',
-            user_balance: 0.00,
-            members
-          };
         }
       } catch (err) {
         console.warn('Supabase join group error:', err);
@@ -338,13 +350,16 @@ export const apiService = {
         const gCode = (g.join_code || `STAY-${(g.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase()}`).toUpperCase();
         const gCodeAlphaNum = gCode.replace(/[^A-Z0-9]/g, '');
         const gIdUpper = g.id.toUpperCase();
+        const gNameUpper = g.name.toUpperCase();
 
         return variants.some(v => 
           gCode === v || 
           gCode.includes(v) ||
           gCodeAlphaNum === v ||
           gCodeAlphaNum.includes(v) ||
-          gIdUpper.includes(v)
+          v.includes(gCodeAlphaNum) ||
+          gIdUpper.includes(v) ||
+          gNameUpper === v
         );
       });
 
