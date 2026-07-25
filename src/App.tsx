@@ -19,8 +19,8 @@ import { UserProfile } from './types';
 
 const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '';
 const isClerkConfigured = Boolean(
-  clerkKey && 
-  !clerkKey.includes('placeholder') && 
+  clerkKey &&
+  !clerkKey.includes('placeholder') &&
   clerkKey.startsWith('pk_')
 );
 
@@ -246,7 +246,7 @@ export function App() {
     const { notificationsSent } = await apiService.addExpense(expenseData);
     const freshGroups = await apiService.getGroups();
     setGroups(freshGroups);
-    
+
     if (selectedGroup) {
       const updatedExpenses = await apiService.getExpenses(selectedGroup.id);
       setExpenses(updatedExpenses);
@@ -266,7 +266,7 @@ export function App() {
     const { notification } = await apiService.addSettlement(settlementData);
     const freshGroups = await apiService.getGroups();
     setGroups(freshGroups);
-    
+
     if (selectedGroup) {
       const updatedSettlements = await apiService.getSettlements(selectedGroup.id);
       setSettlements(updatedSettlements);
@@ -322,7 +322,7 @@ export function App() {
     <div className="min-h-screen bg-background text-on-background flex flex-col font-sans relative">
       {/* Interactive Galaxy Background */}
       <div className="fixed inset-0 z-0 opacity-40 pointer-events-none overflow-hidden">
-        <Galaxy 
+        <Galaxy
           mouseRepulsion
           mouseInteraction
           density={1}
@@ -504,7 +504,7 @@ export function App() {
               <ProfileModal
                 profile={userProfile}
                 required
-                onClose={() => {}}
+                onClose={() => { }}
                 onSaveProfile={handleSaveProfile}
               />
             ) : (
