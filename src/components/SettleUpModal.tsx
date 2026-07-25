@@ -91,9 +91,9 @@ export const SettleUpModal: React.FC<SettleUpModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-surface-container border border-outline-variant rounded-xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-150">
+      <div className="bg-surface-container border border-outline-variant rounded-xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-150 max-h-[90vh] flex flex-col">
         {/* Modal Header */}
-        <div className="px-lg py-md border-b border-outline-variant/40 flex justify-between items-center bg-surface-container-low">
+        <div className="px-lg py-md border-b border-outline-variant/40 flex justify-between items-center bg-surface-container-low shrink-0">
           <div className="flex items-center gap-md">
             <div className="w-9 h-9 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 flex items-center justify-center">
               <span className="material-symbols-outlined">payments</span>
@@ -112,7 +112,7 @@ export const SettleUpModal: React.FC<SettleUpModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-lg space-y-lg">
+        <form onSubmit={handleSubmit} className="p-lg space-y-lg overflow-y-auto flex-1">
           {/* Select Group */}
           <div className="space-y-xs">
             <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Group</label>
