@@ -287,17 +287,25 @@ export const apiService = {
 
     if (supabase) {
       try {
+        let rg: any = null;
         // The "groups_select_member" RLS policy only lets a signed-in user
-        // SELECT groups they already belong to, so a plain
-        // `supabase.from('groups').select('*')` here would always come
-        // back empty for a group you're trying to join for the first
-        // time. find_group_by_code() is a SECURITY DEFINER function that
-        // resolves the code without requiring membership first.
+        // SELECT groups they already belong to. find_group_by_code() is a
+        // SECURITY DEFINER function that resolves the code without requiring
+        // membership first. We also attempt a direct fallback SELECT query.
         const { data: matchedRows, error: rpcErr } = await supabase.rpc('find_group_by_code', {
           code_input: target
         });
-        if (rpcErr) throw rpcErr;
-        const rg = matchedRows && matchedRows[0];
+        if (!rpcErr && matchedRows && matchedRows.length > 0) {
+          rg = matchedRows[0];
+        } else {
+          const { data: directRows } = await supabase
+            .from('groups')
+            .select('*')
+            .or(`join_code.ilike.STAY-${target},join_code.ilike.${target}`);
+          if (directRows && directRows.length > 0) {
+            rg = directRows[0];
+          }
+        }
 
         if (rg) {
           const newMem: GroupMember = {
@@ -311,33 +319,39 @@ export const apiService = {
             balance: 0.00
           };
 
-          // Insert self as a member first. This is allowed even before
-          // we're a member, since the insert policy permits a user
-          // adding themself. We do this BEFORE reading the roster below,
-          // because that read is membership-gated and would otherwise
-          // come back empty too.
-          const { error: insertErr } = await supabase.from('group_members').insert([{
-            id: newMem.id,
-            group_id: rg.id,
-            user_id: newMem.user_id,
-            email: newMem.email,
-            full_name: newMem.full_name,
-            phone_number: newMem.phone_number,
-            avatar_url: newMem.avatar_url,
-            role: newMem.role,
-            balance: 0.00
-          }]);
-          // A unique-violation here just means this account already
-          // joined this group previously - not a real failure.
-          if (insertErr && insertErr.code !== '23505') throw insertErr;
-
-          // Now that we're a member, RLS lets us read the full roster.
-          const { data: remoteMembers } = await supabase
+          // Check if user is already in group_members in Supabase
+          const { data: remoteMems } = await supabase
             .from('group_members')
             .select('*')
             .eq('group_id', rg.id);
 
-          const members: GroupMember[] = (remoteMembers || []).map(mapRemoteMember);
+          const alreadyMember = (remoteMems || []).some(
+            m => (profile.id && m.user_id === profile.id) ||
+                 (profile.email && m.email && m.email.toLowerCase() === profile.email.trim().toLowerCase())
+          );
+
+          if (!alreadyMember) {
+            const { error: insertErr } = await supabase.from('group_members').insert([{
+              id: newMem.id,
+              group_id: rg.id,
+              user_id: newMem.user_id,
+              email: newMem.email,
+              full_name: newMem.full_name,
+              phone_number: newMem.phone_number,
+              avatar_url: newMem.avatar_url,
+              role: newMem.role,
+              balance: 0.00
+            }]);
+            if (insertErr && insertErr.code !== '23505') throw insertErr;
+          }
+
+          // Fetch fresh full roster after membership confirmed
+          const { data: updatedMembers } = await supabase
+            .from('group_members')
+            .select('*')
+            .eq('group_id', rg.id);
+
+          const members: GroupMember[] = (updatedMembers || []).map(mapRemoteMember);
 
           if (!rg.join_code) {
             await supabase.from('groups').update({ join_code: `STAY-${target}` }).eq('id', rg.id);
@@ -401,6 +415,49 @@ export const apiService = {
     }
 
     return null;
+  },
+
+  async leaveGroup(groupId: string): Promise<boolean> {
+    const profile = getStored<UserProfile>(STORAGE_KEYS.PROFILE, DEFAULT_PROFILE);
+
+    if (supabase) {
+      try {
+        if (profile.id || profile.email) {
+          const filter = profile.id && profile.email
+            ? `user_id.eq.${profile.id},email.ilike.${profile.email.trim()}`
+            : profile.id
+            ? `user_id.eq.${profile.id}`
+            : `email.ilike.${profile.email.trim()}`;
+
+          await supabase
+            .from('group_members')
+            .delete()
+            .eq('group_id', groupId)
+            .or(filter);
+        }
+
+        // Check if any members remain in this group
+        const { data: remainingMembers } = await supabase
+          .from('group_members')
+          .select('id')
+          .eq('group_id', groupId);
+
+        // If no members are left, clean up group record completely
+        if (!remainingMembers || remainingMembers.length === 0) {
+          await supabase.from('groups').delete().eq('id', groupId);
+        }
+      } catch (err) {
+        console.warn('Supabase leave group error:', err);
+      }
+    }
+
+    // Clean up local cache & state
+    groupsState = groupsState.filter(g => g.id !== groupId);
+    const localGroups = getStored<Group[]>(STORAGE_KEYS.GROUPS, []);
+    const updatedLocal = localGroups.filter(g => g.id !== groupId);
+    saveStored(STORAGE_KEYS.GROUPS, updatedLocal);
+
+    return true;
   },
 
   async addMemberToGroup(groupId: string, name: string, phone: string, email?: string): Promise<Group | null> {
@@ -740,6 +797,7 @@ export const apiService = {
     payee_phone?: string;
     amount: number;
     payment_method: Settlement['payment_method'];
+    razorpay_payment_id?: string;
     sendSMS?: boolean;
   }): Promise<{ settlement: Settlement; notification?: SMSNotification }> {
     const newSettlement: Settlement = {
@@ -751,6 +809,7 @@ export const apiService = {
       payee_name: settlementData.payee_name,
       amount: settlementData.amount,
       payment_method: settlementData.payment_method,
+      razorpay_payment_id: settlementData.razorpay_payment_id,
       settled_at: new Date().toISOString()
     };
 
@@ -959,6 +1018,7 @@ export const apiService = {
             avatar_url: remoteProfile.avatar_url || localProfile.avatar_url,
             venmo_handle: remoteProfile.venmo_handle || localProfile.venmo_handle,
             cash_app_handle: remoteProfile.cash_app_handle || localProfile.cash_app_handle,
+            razorpay_handle: remoteProfile.razorpay_handle || localProfile.razorpay_handle,
             bio: remoteProfile.bio || localProfile.bio,
             currency: remoteProfile.currency || localProfile.currency || 'USD ($)',
             is_onboarded: true
