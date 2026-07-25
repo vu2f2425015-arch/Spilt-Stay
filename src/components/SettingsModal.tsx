@@ -24,113 +24,113 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-surface-container border border-outline-variant rounded-xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-150 max-h-[85vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      <div className="glass-panel border border-slate-700/80 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-fade-in-up max-h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="px-lg py-md border-b border-outline-variant/40 flex justify-between items-center bg-surface-container-low shrink-0">
-          <div className="flex items-center gap-md">
-            <div className="w-9 h-9 rounded-lg bg-primary-container/20 text-primary flex items-center justify-center">
-              <span className="material-symbols-outlined">settings</span>
+        <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/90 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
+              <span className="material-symbols-outlined text-xl">settings</span>
             </div>
             <div>
-              <h2 className="text-lg font-bold text-on-surface">Workspace Settings</h2>
-              <p className="text-xs text-on-surface-variant">Manage application preferences & data</p>
+              <h2 className="text-lg font-bold text-slate-100">Workspace Settings</h2>
+              <p className="text-xs text-slate-400">Manage application preferences & data</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-container-high transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-100 rounded-full hover:bg-slate-800 transition-colors"
           >
-            <span className="material-symbols-outlined">close</span>
+            <span className="material-symbols-outlined text-lg">close</span>
           </button>
         </div>
 
         {/* Form Content */}
-        <div className="p-lg overflow-y-auto space-y-lg flex-1">
+        <div className="p-6 overflow-y-auto space-y-4 flex-1">
           {/* Default Currency */}
-          <div className="space-y-xs">
-            <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Default Currency</label>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Default Currency</label>
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
-              className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg px-md py-2.5 text-on-surface focus:border-primary focus:outline-none"
+              className="w-full bg-slate-900/90 border border-slate-700/70 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all"
             >
+              <option value="INR (₹)">INR (₹) - Indian Rupee</option>
               <option value="USD ($)">USD ($) - US Dollar</option>
               <option value="EUR (€)">EUR (€) - Euro</option>
               <option value="GBP (£)">GBP (£) - British Pound</option>
-              <option value="INR (₹)">INR (₹) - Indian Rupee</option>
               <option value="CAD ($)">CAD ($) - Canadian Dollar</option>
             </select>
           </div>
 
           {/* Preferences */}
-          <div className="space-y-sm">
-            <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Notification Preferences</label>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Notification Preferences</label>
             
-            <div className="bg-surface-container-low p-md rounded-lg border border-outline-variant/40 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">sms</span>
+            <div className="bg-slate-900/90 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="material-symbols-outlined text-indigo-400">sms</span>
                 <div>
-                  <p className="text-xs font-bold text-on-surface">Default SMS Notifications</p>
-                  <p className="text-[11px] text-on-surface-variant">Enable SMS alert checkbox by default</p>
+                  <p className="text-xs font-bold text-slate-200">Default SMS Alerts</p>
+                  <p className="text-[11px] text-slate-400">Enable SMS alert checkbox by default</p>
                 </div>
               </div>
               <input
                 type="checkbox"
                 checked={smsAlerts}
                 onChange={(e) => setSmsAlerts(e.target.checked)}
-                className="w-4 h-4 accent-primary rounded cursor-pointer"
+                className="w-4 h-4 accent-indigo-500 rounded cursor-pointer"
               />
             </div>
 
-            <div className="bg-surface-container-low p-md rounded-lg border border-outline-variant/40 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">mail</span>
+            <div className="bg-slate-900/90 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="material-symbols-outlined text-indigo-400">mail</span>
                 <div>
-                  <p className="text-xs font-bold text-on-surface">Weekly Expense Summary</p>
-                  <p className="text-[11px] text-on-surface-variant">Receive email updates on balances</p>
+                  <p className="text-xs font-bold text-slate-200">Weekly Summary Email</p>
+                  <p className="text-[11px] text-slate-400">Receive email updates on balances</p>
                 </div>
               </div>
               <input
                 type="checkbox"
                 checked={emailDigest}
                 onChange={(e) => setEmailDigest(e.target.checked)}
-                className="w-4 h-4 accent-primary rounded cursor-pointer"
+                className="w-4 h-4 accent-indigo-500 rounded cursor-pointer"
               />
             </div>
           </div>
 
           {/* Data Reset Section */}
-          <div className="pt-md border-t border-outline-variant/40 space-y-sm">
-            <label className="text-xs font-semibold text-error uppercase tracking-wider">Danger Zone</label>
-            <div className="bg-error-container/10 border border-error-container/30 p-md rounded-xl space-y-md">
+          <div className="pt-4 border-t border-slate-800 space-y-2">
+            <label className="text-xs font-bold text-rose-400 uppercase tracking-wider">Danger Zone</label>
+            <div className="bg-rose-500/10 border border-rose-500/30 p-4 rounded-2xl space-y-3">
               <div>
-                <p className="text-xs font-bold text-on-surface">Reset Local Workspace</p>
-                <p className="text-[11px] text-on-surface-variant mt-0.5">
-                  Clear all stored local groups, expenses, settlements, and SMS logs.
+                <p className="text-xs font-bold text-slate-100">Reset Local Cache</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Clear stored local offline cache & temporary logs.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => {
-                  if (window.confirm('Are you sure you want to clear all local data?')) {
+                  if (window.confirm('Are you sure you want to clear all local cache data?')) {
                     onResetWorkspace();
                     onClose();
                   }
                 }}
-                className="bg-error-container/30 hover:bg-error-container/50 border border-error text-error text-xs font-bold px-4 py-2 rounded-lg transition-colors"
+                className="bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-300 text-xs font-bold px-4 py-2 rounded-xl transition-all"
               >
-                Reset All Local Data
+                Reset Local Cache
               </button>
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-lg py-md border-t border-outline-variant/40 bg-surface-container-low flex justify-end shrink-0">
+        <div className="px-6 py-4 border-t border-slate-800 bg-slate-900/90 flex justify-end shrink-0">
           <button
             onClick={handleSave}
-            className="bg-primary-container text-on-primary-container px-lg py-sm rounded-xl text-sm font-semibold hover:opacity-90 transition-all"
+            className="btn-gradient-primary text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-lg"
           >
             Save Preferences
           </button>
