@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { SignedIn, SignedOut, useUser } from '@clerk/clerk-react';
+import { SignedIn, SignedOut, useUser, useAuth } from '@clerk/clerk-react';
 import { Group, Expense, Settlement, RecurringExpense, SMSNotification } from './types';
 import { apiService } from './services/api';
+import { setClerkTokenGetter } from './lib/supabase';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { GroupDetail } from './components/GroupDetail';
@@ -66,6 +67,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 
 export function App() {
   const { isLoaded, isSignedIn, user } = useUser();
+  const { getToken } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -83,6 +85,19 @@ export function App() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  // Give the Supabase client a way to fetch a fresh Clerk session token for
+  // every request, so RLS policies (which key off auth.jwt()->>'sub') can
+  // actually authorize the signed-in user instead of seeing an anonymous
+  // request. This has to be wired up whenever sign-in state changes.
+  useEffect(() => {
+    if (isClerkConfigured && isSignedIn) {
+      setClerkTokenGetter(() => getToken());
+    } else {
+      setClerkTokenGetter(null);
+    }
+    return () => setClerkTokenGetter(null);
+  }, [isClerkConfigured, isSignedIn, getToken]);
 
   // Sync Clerk user profile data upon sign in and reload groups for the authenticated account
   useEffect(() => {
@@ -294,6 +309,7 @@ export function App() {
             onDeleteGroup={handleDeleteGroup}
             onAddMember={handleAddMember}
             currencySetting={userProfile?.currency}
+            currentUserId={userProfile.id}
           />
         ) : (
           <Dashboard
@@ -330,6 +346,7 @@ export function App() {
           selectedGroup={selectedGroup}
           onClose={() => setIsSettleUpOpen(false)}
           currencySetting={userProfile?.currency}
+          currentUserId={userProfile.id}
           onSettleUp={handleSettleUp}
         />
       )}
