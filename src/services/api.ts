@@ -71,10 +71,22 @@ let profileState: UserProfile = getStored(STORAGE_KEYS.PROFILE, DEFAULT_PROFILE)
 
 // Utility to sanitize groups data so array fields are never undefined
 const sanitizeGroup = (g: Group): Group => {
+  const members = Array.isArray(g?.members)
+    ? g.members.map(m => {
+        const parsed = parseFloat(String(m.balance ?? 0));
+        const cleanBal = isNaN(parsed) || !isFinite(parsed) ? 0 : Number(parsed.toFixed(2));
+        return {
+          ...m,
+          balance: cleanBal
+        };
+      })
+    : [];
+  const parsedUserBal = parseFloat(String(g?.user_balance ?? 0));
+  const cleanUserBal = isNaN(parsedUserBal) || !isFinite(parsedUserBal) ? 0 : Number(parsedUserBal.toFixed(2));
   return {
     ...g,
-    members: Array.isArray(g?.members) ? g.members : [],
-    user_balance: typeof g?.user_balance === 'number' ? g.user_balance : 0,
+    members,
+    user_balance: cleanUserBal,
     last_activity: g?.last_activity || 'Just now'
   };
 };
@@ -92,16 +104,20 @@ const codeForGroup = (g: { id: string; join_code?: string }): string => {
   return (g.id || 'ROOM').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase();
 };
 
-const mapRemoteMember = (m: any): GroupMember => ({
-  id: m.id,
-  user_id: m.user_id || m.id,
-  full_name: m.full_name,
-  email: m.email,
-  phone_number: m.phone_number,
-  avatar_url: m.avatar_url || DEFAULT_AVATAR,
-  role: (m.role as 'owner' | 'admin' | 'member') || 'member',
-  balance: Number(m.balance || 0)
-});
+const mapRemoteMember = (m: any): GroupMember => {
+  const parsed = parseFloat(String(m.balance ?? 0));
+  const cleanBalance = isNaN(parsed) || !isFinite(parsed) ? 0 : Number(parsed.toFixed(2));
+  return {
+    id: m.id,
+    user_id: m.user_id || m.id,
+    full_name: m.full_name || 'Roommate',
+    email: m.email || '',
+    phone_number: m.phone_number,
+    avatar_url: m.avatar_url || DEFAULT_AVATAR,
+    role: (m.role as 'owner' | 'admin' | 'member') || 'member',
+    balance: cleanBalance
+  };
+};
 
 export const apiService = {
   isConfigured: true,
@@ -1076,10 +1092,28 @@ export const apiService = {
         full_name: profileState.full_name,
         avatar_url: profileState.avatar_url,
         phone_number: profileState.phone_number,
+        is_onboarded: true,
         updated_at: new Date().toISOString()
       }]).then(res => {
         if (res.error) console.warn('Supabase profile sync warning:', res.error);
       });
+
+      if (profileState.email || profileState.id) {
+        const filter = profileState.id && profileState.email
+          ? `user_id.eq.${profileState.id},email.ilike.${profileState.email.trim()}`
+          : profileState.id
+          ? `user_id.eq.${profileState.id}`
+          : `email.ilike.${profileState.email.trim()}`;
+
+        supabase.from('group_members').update({
+          full_name: profileState.full_name,
+          avatar_url: profileState.avatar_url,
+          phone_number: profileState.phone_number,
+          email: profileState.email
+        }).or(filter).then(res => {
+          if (res.error) console.warn('Supabase group members sync warning:', res.error);
+        });
+      }
     }
 
     return profileState;
