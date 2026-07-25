@@ -35,21 +35,21 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="bg-surface-dim border-b border-outline-variant/30 sticky top-0 z-40">
       <div className="flex justify-between items-center w-full px-4 md:px-xl py-md max-w-container-max mx-auto">
-        <div className="flex items-center gap-md md:gap-xl">
+        <div className="flex items-center gap-2 md:gap-xl">
           {/* Logo / Brand */}
           <button 
             onClick={() => onSelectGroup(null)}
-            className="flex items-center gap-2 text-left text-headline-md font-bold text-primary hover:opacity-90 transition-opacity"
+            className="flex items-center gap-1.5 md:gap-2 text-left text-headline-md font-bold text-primary hover:opacity-90 transition-opacity shrink-0"
           >
-            <span className="material-symbols-outlined text-primary text-3xl">pie_chart</span>
-            <span className="text-xl md:text-2xl font-bold tracking-tight text-primary">SplitStay</span>
+            <span className="material-symbols-outlined text-primary text-2xl md:text-3xl">pie_chart</span>
+            <span className="text-lg md:text-2xl font-bold tracking-tight text-primary">SplitStay</span>
           </button>
 
-          {/* Group Switcher & Join Button (Desktop Only) */}
-          <div className="hidden md:flex items-center gap-3">
+          {/* Group Switcher & Join Button */}
+          <div className="flex items-center gap-2 md:gap-3">
             <div className="relative group">
-              <button className="flex items-center gap-xs bg-surface-container-low border border-outline-variant/40 px-md py-sm rounded-lg hover:bg-surface-container-highest transition-colors">
-                <span className="text-label-md font-medium text-on-surface">
+              <button className="flex items-center gap-xs bg-surface-container-low border border-outline-variant/40 px-2.5 md:px-md py-1.5 md:py-sm rounded-lg hover:bg-surface-container-highest transition-colors">
+                <span className="text-xs md:text-label-md font-medium text-on-surface truncate max-w-[90px] sm:max-w-[140px] md:max-w-none">
                   {selectedGroup ? selectedGroup.name : 'All Groups'}
                 </span>
                 <span className="material-symbols-outlined text-on-surface-variant text-sm">expand_more</span>
@@ -70,9 +70,9 @@ export const Header: React.FC<HeaderProps> = ({
                     onClick={() => onSelectGroup(g)}
                     className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-surface-container-high transition-colors ${selectedGroup?.id === g.id ? 'text-primary font-semibold' : 'text-on-surface-variant'}`}
                   >
-                    <span>{g.name}</span>
+                    <span className="truncate">{g.name}</span>
                     {g.user_balance !== 0 && (
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${g.user_balance > 0 ? 'bg-emerald-950 text-emerald-300' : 'bg-error-container/40 text-error'}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ml-2 ${g.user_balance > 0 ? 'bg-emerald-950 text-emerald-300' : 'bg-error-container/40 text-error'}`}>
                         {g.user_balance > 0 ? `+$${g.user_balance.toFixed(0)}` : `-$${Math.abs(g.user_balance).toFixed(0)}`}
                       </span>
                     )}
@@ -101,11 +101,11 @@ export const Header: React.FC<HeaderProps> = ({
             {onOpenJoinGroup && (
               <button
                 onClick={onOpenJoinGroup}
-                className="flex items-center gap-1.5 bg-primary/10 border border-primary/40 hover:bg-primary/20 text-primary px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                className="flex items-center gap-1.5 bg-primary/10 border border-primary/40 hover:bg-primary/20 text-primary px-2.5 md:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-sm hover:shadow active:scale-95 shrink-0"
                 title="Join a roommate group using a 6-character code"
               >
                 <span className="material-symbols-outlined text-sm">key</span>
-                <span>Join Group</span>
+                <span className="hidden sm:inline">Join Group</span>
               </button>
             )}
           </div>
