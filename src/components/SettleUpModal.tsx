@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Group, Settlement } from '../types';
-import { getCurrencySymbol, formatCurrency, parseInputAmountToUSD } from '../utils/currency';
+import { getCurrencySymbol, formatCurrency } from '../utils/currency';
 
 interface SettleUpModalProps {
   groups: Group[];
@@ -43,10 +43,9 @@ export const SettleUpModal: React.FC<SettleUpModalProps> = ({
   
   // Calculate suggested amount in active currency
   const initialSuggestedUSD = defaultDebtor ? Math.abs(defaultDebtor.balance) : 0;
-  const initialSuggestedFormatted = initialSuggestedUSD > 0 ? (initialSuggestedUSD * (parseInputAmountToUSD(1, currencySetting) === 1 ? 1 : 1)).toFixed(2) : '50.00';
-  
-  const [amount, setAmount] = useState(initialSuggestedFormatted);
-  const [paymentMethod, setPaymentMethod] = useState<Settlement['payment_method']>('venmo');
+
+  const [amount, setAmount] = useState(initialSuggestedUSD > 0 ? (initialSuggestedUSD).toFixed(2) : '');
+  const [paymentMethod, setPaymentMethod] = useState<Settlement['payment_method']>('cash');
   const [sendSMS, setSendSMS] = useState(true);
 
   // Sync payer and payee if group changes
@@ -62,7 +61,7 @@ export const SettleUpModal: React.FC<SettleUpModalProps> = ({
     }
   }, [groupId]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || parseFloat(amount) <= 0 || !currentGroup) return;
 
@@ -71,8 +70,7 @@ export const SettleUpModal: React.FC<SettleUpModalProps> = ({
     
     if (!payerMember || !payeeMember || payerMember.user_id === payeeMember.user_id) return;
 
-    const userEnteredAmount = parseFloat(amount);
-    const amountInUSD = parseInputAmountToUSD(userEnteredAmount, currencySetting);
+    const userEnteredAmount = Number(parseFloat(amount).toFixed(2));
 
     onSettleUp({
       group_id: groupId,
@@ -81,51 +79,40 @@ export const SettleUpModal: React.FC<SettleUpModalProps> = ({
       payee_id: payeeMember.user_id,
       payee_name: payeeMember.full_name,
       payee_phone: payeeMember.phone_number,
-      amount: amountInUSD,
+      amount: userEnteredAmount,
       payment_method: paymentMethod,
       sendSMS
     });
-
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-surface-container border border-outline-variant rounded-xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-150 max-h-[90vh] flex flex-col">
-        {/* Modal Header */}
-        <div className="px-lg py-md border-b border-outline-variant/40 flex justify-between items-center bg-surface-container-low shrink-0">
-          <div className="flex items-center gap-md">
-            <div className="w-9 h-9 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 flex items-center justify-center">
-              <span className="material-symbols-outlined">payments</span>
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+      <div className="glass-panel border border-slate-700/80 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl space-y-4 p-6 animate-fade-in-up">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+              <span className="material-symbols-outlined text-xl">payments</span>
             </div>
             <div>
-              <h2 className="text-lg font-bold text-on-surface">Settle Up Debt</h2>
-              <p className="text-xs text-on-surface-variant">Record a payment & notify roomie via SMS</p>
+              <h2 className="text-lg font-bold text-slate-100">Record Settlement Payment</h2>
+              <p className="text-xs text-slate-400">Clear balances between roommates</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-container-high transition-colors"
-          >
-            <span className="material-symbols-outlined">close</span>
+          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-100 rounded-full hover:bg-slate-800 transition-colors">
+            <span className="material-symbols-outlined text-lg">close</span>
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-lg space-y-lg overflow-y-auto flex-1">
-          {/* Select Group */}
-          <div className="space-y-xs">
-            <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Group</label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Group Picker */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Group Workspace *</label>
             <select
               value={groupId}
-              onChange={(e) => {
-                setGroupId(e.target.value);
-                const g = groups.find(x => x.id === e.target.value);
-                const mems = g && Array.isArray(g.members) ? g.members : [];
-                const others = mems.filter(m => m.user_id !== currentUserId);
-                if (others[0]) setPayeeId(others[0].user_id);
-              }}
-              className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg px-md py-2.5 text-on-surface focus:border-primary focus:outline-none"
+              onChange={(e) => setGroupId(e.target.value)}
+              className="w-full bg-slate-900/90 border border-slate-700/70 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all"
             >
               {groups.map(g => (
                 <option key={g.id} value={g.id}>{g.name}</option>
@@ -133,91 +120,95 @@ export const SettleUpModal: React.FC<SettleUpModalProps> = ({
             </select>
           </div>
 
-          {/* Payer Selection */}
-          <div className="space-y-xs">
-            <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Who is Paying?</label>
-            <select
-              value={payerId}
-              onChange={(e) => {
-                setPayerId(e.target.value);
-                const selectedPayer = members.find(m => m.user_id === e.target.value);
-                if (selectedPayer && Math.abs(selectedPayer.balance) > 0) {
-                  setAmount(Math.abs(selectedPayer.balance).toFixed(2));
-                }
-              }}
-              className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg px-md py-2.5 text-on-surface focus:border-primary focus:outline-none"
-            >
-              {members.map(m => (
-                <option key={m.user_id} value={m.user_id}>
-                  {m.full_name} {m.balance < 0 ? `(owes ${formatCurrency(Math.abs(m.balance), currencySetting)})` : m.balance > 0 ? `(gets back ${formatCurrency(m.balance, currencySetting)})` : '(settled)'}
-                </option>
-              ))}
-            </select>
+          {/* Payer & Payee Selection */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Who Paid? *</label>
+              <select
+                value={payerId}
+                onChange={(e) => setPayerId(e.target.value)}
+                className="w-full bg-slate-900/90 border border-slate-700/70 rounded-xl px-4 py-2.5 text-xs md:text-sm text-slate-100 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all"
+              >
+                {members.map(m => (
+                  <option key={m.user_id} value={m.user_id}>
+                    {m.full_name} {m.balance < 0 ? `(owes ${formatCurrency(Math.abs(m.balance), currencySetting)})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Paid To Whom? *</label>
+              <select
+                value={payeeId}
+                onChange={(e) => setPayeeId(e.target.value)}
+                className="w-full bg-slate-900/90 border border-slate-700/70 rounded-xl px-4 py-2.5 text-xs md:text-sm text-slate-100 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all"
+              >
+                {members.map(m => (
+                  <option key={m.user_id} value={m.user_id}>
+                    {m.full_name} {m.balance > 0 ? `(is owed ${formatCurrency(m.balance, currencySetting)})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          {/* Payee Selection */}
-          <div className="space-y-xs">
-            <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Who gets paid? (Recipient)</label>
-            <select
-              value={payeeId}
-              onChange={(e) => setPayeeId(e.target.value)}
-              className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg px-md py-2.5 text-on-surface focus:border-primary focus:outline-none"
-            >
-              {members.filter(m => m.user_id !== payerId).map(m => (
-                <option key={m.user_id} value={m.user_id}>
-                  {m.full_name} {m.phone_number ? `(${m.phone_number})` : ''} {m.balance > 0 ? `(gets back ${formatCurrency(m.balance, currencySetting)})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Amount */}
-          <div className="space-y-xs">
-            <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Payment Amount ({currencySymbol})</label>
+          {/* Amount Input */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Amount ({currencySymbol}) *</label>
+              {initialSuggestedUSD > 0 && (
+                <span className="text-[11px] text-emerald-400 font-bold">
+                  Suggested: {formatCurrency(initialSuggestedUSD, currencySetting)}
+                </span>
+              )}
+            </div>
             <input
               type="number"
               step="0.01"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               required
-              className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg px-md py-2.5 text-emerald-400 font-bold text-xl focus:border-emerald-500 focus:outline-none"
+              className="w-full bg-slate-900/90 border border-slate-700/70 rounded-xl px-4 py-2.5 text-emerald-400 font-extrabold text-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all"
             />
           </div>
 
           {/* Payment Method Picker */}
-          <div className="space-y-xs">
-            <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Payment Method</label>
-            <div className="grid grid-cols-2 gap-sm">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Payment Method</label>
+            <div className="grid grid-cols-2 gap-2.5">
               {[
+                { id: 'cash', label: 'Cash / Other', icon: 'payments' },
                 { id: 'venmo', label: 'Venmo', icon: 'send' },
                 { id: 'cash_app', label: 'Cash App', icon: 'attach_money' },
                 { id: 'bank_transfer', label: 'Bank Transfer', icon: 'account_balance' },
-                { id: 'cash', label: 'Cash / Other', icon: 'payments' },
               ].map(m => (
                 <button
                   key={m.id}
                   type="button"
                   onClick={() => setPaymentMethod(m.id as Settlement['payment_method'])}
-                  className={`p-md rounded-lg border text-sm font-semibold flex items-center gap-2 transition-all ${
+                  className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all ${
                     paymentMethod === m.id
-                      ? 'bg-emerald-950/40 border-emerald-500 text-emerald-300'
-                      : 'bg-surface-container-low border-outline-variant/40 text-on-surface-variant hover:bg-surface-container-high'
+                      ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300 shadow-lg shadow-emerald-950/50'
+                      : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-base">{m.icon}</span>
-                  {m.label}
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base text-emerald-400">{m.icon}</span>
+                    <span>{m.label}</span>
+                  </div>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* SMS Alert Toggle */}
-          <div className="bg-surface-container-low p-md rounded-lg border border-outline-variant/40 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-emerald-400">sms</span>
+          {/* SMS Toggle */}
+          <div className="bg-slate-900/90 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="material-symbols-outlined text-emerald-400">chat</span>
               <div>
-                <p className="text-xs font-bold text-on-surface">Send Payment SMS Alert</p>
-                <p className="text-[11px] text-on-surface-variant">Notify roomie via SMS when settled</p>
+                <p className="text-xs font-bold text-slate-200">Send Payment SMS & WhatsApp Alert</p>
+                <p className="text-[11px] text-slate-400">Notify roomie via SMS or WhatsApp</p>
               </div>
             </div>
             <input
@@ -228,20 +219,20 @@ export const SettleUpModal: React.FC<SettleUpModalProps> = ({
             />
           </div>
 
-          {/* Buttons */}
-          <div className="flex justify-end gap-md pt-md border-t border-outline-variant/40">
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-lg py-md text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-xl transition-colors"
+              className="px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-200"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="bg-emerald-600 hover:bg-emerald-500 text-white px-xl py-md text-sm font-semibold rounded-xl shadow-lg shadow-emerald-900/30 active:scale-95 transition-all"
+              className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-6 py-2.5 text-xs rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2"
             >
-              Record Payment
+              <span>Record Payment</span>
             </button>
           </div>
         </form>
