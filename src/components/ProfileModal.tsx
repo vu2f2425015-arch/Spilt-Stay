@@ -6,9 +6,6 @@ interface ProfileModalProps {
   profile: UserProfile;
   onClose: () => void;
   onSaveProfile: (updated: Partial<UserProfile>) => void;
-  // Onboarding mode: shown right after sign-in when a required detail
-  // (currently phone number, needed for SMS/WhatsApp alerts) is missing.
-  // Hides the Cancel/close controls and requires phone before saving.
   required?: boolean;
 }
 
@@ -70,21 +67,21 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-surface-container border border-outline-variant rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-150 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto">
+      <div className="glass-panel border border-slate-700/80 rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl animate-fade-in-up max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="px-lg py-md border-b border-outline-variant/40 flex justify-between items-center bg-surface-container-low shrink-0">
-          <div className="flex items-center gap-md">
-            <div className="w-10 h-10 rounded-full border-2 border-primary overflow-hidden shrink-0">
+        <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/90 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl border-2 border-indigo-500/60 overflow-hidden shrink-0 shadow-sm">
               <img src={avatarUrl || sampleAvatars[0]} alt="Avatar" className="w-full h-full object-cover" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-on-surface">
-                {required ? 'Complete Your Profile' : 'Your Account Profile'}
+              <h2 className="text-lg font-bold text-slate-100">
+                {required ? 'Complete Your Profile' : 'Account Profile'}
               </h2>
-              <p className="text-xs text-on-surface-variant">
+              <p className="text-xs text-slate-400">
                 {required
-                  ? 'We need a phone number to send you SMS/WhatsApp expense alerts before you continue.'
+                  ? 'We need a phone number to send you expense alerts before you continue.'
                   : 'Update contact info & payment tags for roomies'}
               </p>
             </div>
@@ -92,34 +89,34 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           {!required && (
             <button
               onClick={onClose}
-              className="p-1.5 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-container-high transition-colors"
+              className="p-1.5 text-slate-400 hover:text-slate-100 rounded-full hover:bg-slate-800 transition-colors"
             >
-              <span className="material-symbols-outlined">close</span>
+              <span className="material-symbols-outlined text-lg">close</span>
             </button>
           )}
         </div>
 
         {/* Saved Toast Banner */}
         {isSavedNotice && (
-          <div className="bg-emerald-950 border-b border-emerald-500/50 text-emerald-300 px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2 animate-in fade-in">
-            <span className="material-symbols-outlined text-sm">check_circle</span>
+          <div className="bg-emerald-500/20 border-b border-emerald-500/40 text-emerald-300 px-4 py-2.5 text-xs font-bold flex items-center justify-center gap-2 animate-fade-in-up">
+            <span className="material-symbols-outlined text-sm text-emerald-400">check_circle</span>
             <span>Profile details updated & synced across all your groups!</span>
           </div>
         )}
 
         {/* Profile Form */}
-        <form onSubmit={handleSubmit} className="p-lg overflow-y-auto space-y-lg flex-1">
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 flex-1">
           {/* Avatar Selector */}
-          <div className="space-y-xs">
-            <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Choose Profile Avatar</label>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Choose Avatar</label>
             <div className="flex items-center gap-3">
               {sampleAvatars.map((url, idx) => (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => setAvatarUrl(url)}
-                  className={`w-11 h-11 rounded-full border-2 overflow-hidden transition-all ${
-                    avatarUrl === url ? 'border-primary scale-110 shadow-lg shadow-primary/30' : 'border-outline-variant/50 hover:border-on-surface-variant'
+                  className={`w-10 h-10 rounded-xl border-2 overflow-hidden transition-all ${
+                    avatarUrl === url ? 'border-indigo-500 scale-110 shadow-lg shadow-indigo-500/30' : 'border-slate-800 hover:border-slate-600'
                   }`}
                 >
                   <img src={url} alt={`Avatar ${idx}`} className="w-full h-full object-cover" />
@@ -129,116 +126,111 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           </div>
 
           {/* Full Name & Email */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
-            <div className="space-y-xs">
-              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Full Name *</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Full Name *</label>
               <input
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
-                className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg px-md py-2.5 text-on-surface focus:border-primary focus:outline-none"
+                className="w-full bg-slate-900/90 border border-slate-700/70 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all"
               />
             </div>
-            <div className="space-y-xs">
-              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider flex items-center justify-between">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
                 <span>Email Address</span>
-                {clerkEmail && <span className="text-[10px] text-primary">✓ Clerk Verified</span>}
+                {clerkEmail && <span className="text-[10px] text-indigo-400 font-semibold">✓ Clerk Verified</span>}
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 readOnly={Boolean(clerkEmail)}
-                className={`w-full bg-surface-container-low border border-outline-variant/60 rounded-lg px-md py-2.5 text-on-surface focus:border-primary focus:outline-none ${clerkEmail ? 'opacity-80 cursor-not-allowed' : ''}`}
+                className={`w-full bg-slate-900/90 border border-slate-700/70 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all ${clerkEmail ? 'opacity-80 cursor-not-allowed' : ''}`}
               />
             </div>
           </div>
 
           {/* Phone Number & Preferred Currency */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
-            <div className="space-y-xs">
-              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 Phone Number (SMS Alerts)
               </label>
               <div className="relative">
-                <span className="material-symbols-outlined absolute left-2.5 top-2.5 text-primary text-base">phone</span>
+                <span className="material-symbols-outlined absolute left-3 top-3 text-indigo-400 text-base">phone</span>
                 <input
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+1 (555) 000-0000"
-                  className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg pl-8 pr-md py-2.5 text-on-surface focus:border-primary focus:outline-none"
+                  className="w-full bg-slate-900/90 border border-slate-700/70 rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all"
                 />
               </div>
-              {required && (
-                <p className="text-[11px] text-on-surface-variant pt-1">
-                  Roommates get SMS/WhatsApp alerts at this number when expenses are added or settled.
-                </p>
-              )}
             </div>
-            <div className="space-y-xs">
-              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Preferred Currency</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Preferred Currency</label>
               <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
-                className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg px-md py-2.5 text-on-surface focus:border-primary focus:outline-none"
+                className="w-full bg-slate-900/90 border border-slate-700/70 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all"
               >
+                <option value="INR (₹)">INR (₹)</option>
                 <option value="USD ($)">USD ($)</option>
                 <option value="EUR (€)">EUR (€)</option>
                 <option value="GBP (£)">GBP (£)</option>
-                <option value="INR (₹)">INR (₹)</option>
                 <option value="CAD ($)">CAD ($)</option>
               </select>
             </div>
           </div>
 
-          {/* Payment Tags */}
-          <div className="space-y-xs">
-            <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Payment Handles (Optional)</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
+          {/* Payment Handles */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Payment Handles (Optional)</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="relative">
-                <span className="material-symbols-outlined absolute left-2.5 top-2.5 text-emerald-400 text-base">send</span>
+                <span className="material-symbols-outlined absolute left-3 top-3 text-emerald-400 text-base">send</span>
                 <input
                   type="text"
                   placeholder="Venmo e.g. @username"
                   value={venmo}
                   onChange={(e) => setVenmo(e.target.value)}
-                  className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg pl-8 pr-md py-2 text-sm text-on-surface focus:border-emerald-500 focus:outline-none"
+                  className="w-full bg-slate-900/90 border border-slate-700/70 rounded-xl pl-9 pr-4 py-2 text-xs md:text-sm text-slate-100 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all"
                 />
               </div>
               <div className="relative">
-                <span className="material-symbols-outlined absolute left-2.5 top-2.5 text-emerald-400 text-base">attach_money</span>
+                <span className="material-symbols-outlined absolute left-3 top-3 text-emerald-400 text-base">attach_money</span>
                 <input
                   type="text"
                   placeholder="Cash App e.g. $cashtag"
                   value={cashApp}
                   onChange={(e) => setCashApp(e.target.value)}
-                  className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg pl-8 pr-md py-2 text-sm text-on-surface focus:border-emerald-500 focus:outline-none"
+                  className="w-full bg-slate-900/90 border border-slate-700/70 rounded-xl pl-9 pr-4 py-2 text-xs md:text-sm text-slate-100 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all"
                 />
               </div>
             </div>
           </div>
 
-          {/* Bio / Roommate Note */}
-          <div className="space-y-xs">
-            <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Bio / Household Note</label>
+          {/* Bio */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Household Note / Bio</label>
             <textarea
               rows={2}
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              placeholder="e.g. Room 2 occupant • I usually manage rent payments."
-              className="w-full bg-surface-container-low border border-outline-variant/60 rounded-lg p-md text-sm text-on-surface focus:border-primary focus:outline-none"
+              placeholder="e.g. Apartment occupant • Handles utility bills."
+              className="w-full bg-slate-900/90 border border-slate-700/70 rounded-xl p-3 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all"
             />
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-end gap-md pt-md border-t border-outline-variant/40">
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
             {!required ? (
               <button
                 type="button"
                 onClick={onClose}
-                className="px-lg py-md text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-xl transition-colors"
+                className="px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-200"
               >
                 Cancel
               </button>
@@ -259,14 +251,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   });
                   onClose();
                 }}
-                className="px-lg py-md text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-xl transition-colors"
+                className="px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-200"
               >
                 Skip for Now
               </button>
             )}
             <button
               type="submit"
-              className="bg-primary-container text-on-primary-container px-xl py-md text-sm font-semibold rounded-xl shadow-lg shadow-primary-container/20 active:scale-95 transition-all"
+              className="btn-gradient-primary text-white px-6 py-2.5 text-xs font-bold rounded-xl shadow-lg active:scale-95 transition-all"
             >
               {required ? 'Save & Continue' : 'Save Changes'}
             </button>
